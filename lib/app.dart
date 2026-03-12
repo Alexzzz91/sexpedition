@@ -1,9 +1,7 @@
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:sexpedition_application_1/screen/CalendarScreen.dart';
-// import 'auth_screen.dart';
+import 'package:sexpedition_application_1/screen/AuthScreen.dart';
+import 'package:sexpedition_application_1/screen/MainShell.dart';
 
 class App extends StatelessWidget {
   const App({super.key});
@@ -14,17 +12,12 @@ class App extends StatelessWidget {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.active) {
-          User? user = snapshot.data;
-          log('user: $user');
-          // if (user == null) {
-          // return AuthScreen();
-          // }
-          return CalendarScreen();
+          final user = snapshot.data;
+          if (user == null) return const AuthScreen();
+          return const MainShell();
         }
-        return Scaffold(
-          body: Center(
-            child: CircularProgressIndicator(),
-          ),
+        return const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
         );
       },
     );
