@@ -1,1 +1,49 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"sexpedition-55","appId":"1:725005863356:android:a0e9da59a7291f11e883b9","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"sexpedition-55","configurations":{"android":"1:725005863356:android:a0e9da59a7291f11e883b9","ios":"1:725005863356:ios:b199199c1edf9063e883b9","macos":"1:725005863356:ios:b199199c1edf9063e883b9","web":"1:725005863356:web:daf9b0f8dfafdfbbe883b9","windows":"1:725005863356:web:1ebc755032fae02ae883b9"}}}}}}
+{
+  "hosting": {
+    "public": "build/web",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "sexpedition-55",
+          "appId": "1:725005863356:android:a0e9da59a7291f11e883b9",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "sexpedition-55",
+          "configurations": {
+            "android": "1:725005863356:android:a0e9da59a7291f11e883b9",
+            "ios": "1:725005863356:ios:b199199c1edf9063e883b9",
+            "macos": "1:725005863356:ios:b199199c1edf9063e883b9",
+            "web": "1:725005863356:web:daf9b0f8dfafdfbbe883b9",
+            "windows": "1:725005863356:web:1ebc755032fae02ae883b9"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "database": "(default)",
+    "location": "europe-west4",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "disallowLegacyRuntimeConfig": true,
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint",
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    }
+  ],
+  "auth": {
+    "providers": {}
+  }
+}

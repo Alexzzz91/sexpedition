@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sexpedition_application_1/screen/CalendarScreen.dart';
 import 'package:sexpedition_application_1/screen/PartnersScreen.dart';
 import 'package:sexpedition_application_1/screen/ProfileScreen.dart';
+import 'package:sexpedition_application_1/screen/WishesScreen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -15,6 +16,7 @@ class _MainShellState extends State<MainShell> {
 
   static const _tabs = [
     (icon: Icons.calendar_month, label: 'Календарь'),
+    (icon: Icons.favorite, label: 'Желания'),
     (icon: Icons.people, label: 'Партнёры'),
     (icon: Icons.person, label: 'Профиль'),
   ];
@@ -26,6 +28,7 @@ class _MainShellState extends State<MainShell> {
         index: _index,
         children: const [
           CalendarScreen(),
+          WishesScreen(),
           PartnersScreen(),
           ProfileScreen(),
         ],

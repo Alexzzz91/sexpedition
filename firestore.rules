@@ -1,0 +1,42 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
+    match /users/{userId} {
+      allow read, write: if isSignedIn() && isOwner(userId);
+    }
+
+    match /connections/{connId} {
+      allow read, write: if isSignedIn() &&
+        (resource == null || isOwner(resource.data.fromUserId) || isOwner(resource.data.toUserId));
+      allow create: if isSignedIn() && isOwner(request.resource.data.fromUserId);
+    }
+
+    match /events/{eventId} {
+      allow read, write: if isSignedIn() &&
+        (resource == null || isOwner(resource.data.userId) || request.auth.uid == resource.data.partnerId);
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+    }
+
+    match /wishes/{wishId} {
+      allow read: if isSignedIn() &&
+        (isOwner(resource.data.userId) || resource.data.visibleToPartners == true);
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+      allow update, delete: if isSignedIn() && isOwner(resource.data.userId);
+    }
+
+    match /wish_requests/{requestId} {
+      allow read: if isSignedIn() &&
+        (isOwner(resource.data.fromUserId) || isOwner(resource.data.toUserId));
+      allow create: if isSignedIn() && isOwner(request.resource.data.fromUserId);
+      allow update: if isSignedIn() && isOwner(resource.data.toUserId);
+      allow delete: if false;
+    }
+  }
+}
