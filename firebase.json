@@ -45,5 +45,8 @@
   ],
   "auth": {
     "providers": {}
+  },
+  "storage": {
+    "rules": "storage.rules"
   }
 }

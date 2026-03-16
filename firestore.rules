@@ -9,7 +9,8 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read, write: if isSignedIn() && isOwner(userId);
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isOwner(userId);
     }
 
     match /connections/{connId} {
@@ -29,6 +30,11 @@ service cloud.firestore {
         (isOwner(resource.data.userId) || resource.data.visibleToPartners == true);
       allow create: if isSignedIn() && isOwner(request.resource.data.userId);
       allow update, delete: if isSignedIn() && isOwner(resource.data.userId);
+    }
+
+    match /user_toys/{toyId} {
+      allow read, write: if isSignedIn() && isOwner(resource.data.userId);
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
     }
 
     match /wish_requests/{requestId} {

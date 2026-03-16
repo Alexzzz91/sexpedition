@@ -116,4 +116,17 @@ class PartnersRepository {
     if (doc.data() == null) return null;
     return UserProfile.fromFirestore(doc);
   }
+
+  /// Обновляет отображаемое имя текущего пользователя в Firestore и в Auth.
+  Future<void> updateMyDisplayName(String displayName) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    final name = displayName.trim().isEmpty ? null : displayName.trim();
+    await _users.doc(user.uid).set({
+      'email': user.email ?? '',
+      'displayName': name,
+    }, SetOptions(merge: true));
+    await user.updateDisplayName(name ?? '');
+    await user.reload();
+  }
 }

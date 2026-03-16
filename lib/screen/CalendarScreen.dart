@@ -1,18 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:sexpedition_application_1/models/calendar_event.dart';
+import 'package:sexpedition_application_1/screen/calendar_add_event_dialog.dart';
 import 'package:sexpedition_application_1/services/events_repository.dart';
 import 'package:sexpedition_application_1/services/partners_repository.dart';
-
-sealed class _EventDialogResult {}
-class _EventDialogSave extends _EventDialogResult {
-  _EventDialogSave(this.note, this.date, this.partnerId);
-  final String note;
-  final DateTime date;
-  final String? partnerId;
-}
-class _EventDialogDelete extends _EventDialogResult {}
-class _EventDialogCancel extends _EventDialogResult {}
+import 'package:sexpedition_application_1/services/user_toys_repository.dart';
+import 'package:sexpedition_application_1/services/wish_image_storage.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -24,6 +17,7 @@ class CalendarScreen extends StatefulWidget {
 class _CalendarScreenState extends State<CalendarScreen> {
   final EventsRepository _eventsRepo = EventsRepository();
   final PartnersRepository _partnersRepo = PartnersRepository();
+  final UserToysRepository _toysRepo = UserToysRepository();
   CalendarFormat _calendarFormat = CalendarFormat.month;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
@@ -32,12 +26,31 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   static DateTime _normalize(DateTime d) => CalendarEvent.toDateOnly(d);
 
+  String _eventTitle(CalendarEvent e) {
+    if (e.isSexRecord) {
+      if (e.sexTypes.isNotEmpty)
+        return 'Запись о сексе: ${e.sexTypes.join(", ")}';
+      return 'Запись о сексе';
+    }
+    if (e.isWishToday) {
+      if (e.contentText?.isNotEmpty == true) return e.contentText!;
+      if (e.contentLink?.isNotEmpty == true) return 'Пожелание (ссылка)';
+      if (e.imageUrl != null) return 'Пожелание (фото)';
+      return 'Пожелание на сегодня';
+    }
+    return e.note?.isNotEmpty == true ? e.note! : 'Без заметки';
+  }
+
+  String? _eventSubtitle(CalendarEvent e) {
+    if (e.isSexRecord && e.note?.isNotEmpty == true) return e.note;
+    if (e.isWishToday && e.sexTypes.isNotEmpty) return e.sexTypes.join(', ');
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Календарь'),
-      ),
+      appBar: AppBar(title: const Text('Календарь 1')),
       body: StreamBuilder<List<CalendarEvent>>(
         stream: _eventsRepo.watchEvents(),
         builder: (context, snapshot) {
@@ -79,13 +92,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 onFormatChanged: (format) {
                   setState(() => _calendarFormat = format);
                 },
-                onPageChanged: (focusedDay) => setState(() => _focusedDay = focusedDay),
+                onPageChanged: (focusedDay) =>
+                    setState(() => _focusedDay = focusedDay),
                 eventLoader: (day) => _eventsMap[_normalize(day)] ?? [],
               ),
               if (_selectedDay != null) ...[
                 const Divider(),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: Row(
                     children: [
                       Text(
@@ -100,15 +117,34 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     padding: const EdgeInsets.all(16),
                     child: Text(
                       'Нет событий',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   )
                 else
-                  ...selectedDayEvents.map((e) => ListTile(
-                        title: Text(e.note?.isNotEmpty == true ? e.note! : 'Без заметки'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => _showEventDialog(_selectedDay!, existing: e),
-                      )),
+                  ...selectedDayEvents.map(
+                    (e) => ListTile(
+                      leading: Icon(
+                        e.isSexRecord
+                            ? Icons.favorite
+                            : (e.isWishToday
+                                  ? Icons.card_giftcard
+                                  : Icons.event_note),
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      title: Text(_eventTitle(e)),
+                      subtitle: _eventSubtitle(e) != null
+                          ? Text(
+                              _eventSubtitle(e)!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            )
+                          : null,
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => _showEventDialog(_selectedDay!, existing: e),
+                    ),
+                  ),
               ],
             ],
           );
@@ -131,106 +167,88 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Future<void> _showEventDialog(DateTime day, {CalendarEvent? existing}) async {
-    final isEdit = existing != null;
-    final noteController = TextEditingController(text: existing?.note ?? '');
     final date = _normalize(day);
     final partnersList = await _loadPartnersForDialog();
-    String? selectedPartnerId = existing?.partnerId;
+    if (!mounted) return;
 
-    final result = await showDialog<_EventDialogResult>(
+    final result = await showDialog<AddEventDialogResult>(
       context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: Text(isEdit ? 'Редактировать событие' : 'Добавить событие'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('Дата: ${date.day}.${date.month}.${date.year}'),
-                    const SizedBox(height: 16),
-                    if (partnersList.isNotEmpty) ...[
-                      DropdownButtonFormField<String?>(
-                        value: selectedPartnerId,
-                        decoration: const InputDecoration(
-                          labelText: 'Партнёр',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: [
-                          const DropdownMenuItem(value: null, child: Text('Не выбран')),
-                          ...partnersList.map((p) => DropdownMenuItem(value: p.userId, child: Text(p.label))),
-                        ],
-                        onChanged: (v) => setState(() => selectedPartnerId = v),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    TextField(
-                      controller: noteController,
-                      decoration: const InputDecoration(
-                        labelText: 'Заметка',
-                        border: OutlineInputBorder(),
-                      ),
-                      maxLines: 2,
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                if (isEdit)
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(_EventDialogDelete()),
-                    child: Text('Удалить', style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                  ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(_EventDialogCancel()),
-                  child: const Text('Отмена'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.of(context).pop(_EventDialogSave(noteController.text.trim(), date, selectedPartnerId)),
-                  child: Text(isEdit ? 'Сохранить' : 'Добавить'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (context) => CalendarAddEventDialog(
+        date: date,
+        existing: existing,
+        partnersList: partnersList,
+        toysRepository: _toysRepo,
+        uploadImage: (file) => uploadWishImage(file),
+      ),
     );
 
-    if (result == null || result is _EventDialogCancel) return;
-    if (result is _EventDialogDelete && existing != null) {
+    if (result == null || result is AddEventDialogCancel) return;
+    if (result is AddEventDialogDelete && existing != null) {
       final confirm = await showDialog<bool>(
         context: context,
         builder: (c) => AlertDialog(
           title: const Text('Удалить событие?'),
           actions: [
-            TextButton(onPressed: () => Navigator.of(c).pop(false), child: const Text('Нет')),
-            FilledButton(onPressed: () => Navigator.of(c).pop(true), child: const Text('Да')),
+            TextButton(
+              onPressed: () => Navigator.of(c).pop(false),
+              child: const Text('Нет'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(c).pop(true),
+              child: const Text('Да'),
+            ),
           ],
         ),
       );
-      if (confirm == true) await _eventsRepo.deleteEvent(existing.id);
+      if (confirm == true && mounted)
+        await _eventsRepo.deleteEvent(existing.id);
       return;
     }
-    if (result is _EventDialogSave) {
-      if (isEdit) {
-        await _eventsRepo.updateEvent(existing.copyWith(
-          note: result.note.isEmpty ? null : result.note,
-          partnerId: result.partnerId,
-        ));
+    if (!mounted) return;
+    if (result is AddEventDialogSaveSexRecord) {
+      final event = CalendarEvent(
+        id: existing?.id ?? '',
+        date: result.date,
+        userId: existing?.userId ?? '',
+        partnerId: result.partnerId,
+        kind: CalendarEventKind.sexRecord,
+        sexTypes: result.sexTypes,
+        poseIds: result.poseIds,
+        toyIds: result.toyIds,
+        durationMinutes: result.durationMinutes,
+        satisfactionRating: result.satisfactionRating,
+        note: result.note,
+      );
+      if (existing != null) {
+        await _eventsRepo.updateEvent(event);
       } else {
-        await _eventsRepo.addEvent(CalendarEvent(
-          id: '',
-          date: result.date,
-          userId: '',
-          partnerId: result.partnerId,
-          note: result.note.isEmpty ? null : result.note,
-        ));
+        await _eventsRepo.addEvent(event);
+      }
+    }
+    if (result is AddEventDialogSaveWish) {
+      final event = CalendarEvent(
+        id: existing?.id ?? '',
+        date: result.date,
+        userId: existing?.userId ?? '',
+        kind: CalendarEventKind.wishToday,
+        sexTypes: result.sexTypes,
+        contentLink: result.contentLink,
+        contentText: result.contentText,
+        imageUrl: result.imageUrl,
+        visibleToPartners: result.visibleToPartners,
+      );
+      if (existing != null) {
+        await _eventsRepo.updateEvent(event);
+      } else {
+        await _eventsRepo.addEvent(event);
       }
     }
   }
 
-  Future<void> _showDayEventsChoice(DateTime day, List<CalendarEvent> dayEvents) async {
+  Future<void> _showDayEventsChoice(
+    DateTime day,
+    List<CalendarEvent> dayEvents,
+  ) async {
     final choice = await showModalBottomSheet<_DayEventChoice>(
       context: context,
       builder: (context) {
@@ -245,14 +263,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
-              ...dayEvents.map((e) => ListTile(
-                    title: Text(e.note?.isNotEmpty == true ? e.note! : 'Без заметки'),
-                    onTap: () => Navigator.of(context).pop(_DayEventChoice.edit(e)),
-                  )),
+              ...dayEvents.map(
+                (e) => ListTile(
+                  leading: Icon(
+                    e.isSexRecord
+                        ? Icons.favorite
+                        : (e.isWishToday
+                              ? Icons.card_giftcard
+                              : Icons.event_note),
+                  ),
+                  title: Text(_eventTitle(e)),
+                  onTap: () =>
+                      Navigator.of(context).pop(_DayEventChoice.edit(e)),
+                ),
+              ),
               ListTile(
                 leading: const Icon(Icons.add),
                 title: const Text('Добавить событие'),
-                onTap: () => Navigator.of(context).pop(_DayEventChoice.addNew()),
+                onTap: () =>
+                    Navigator.of(context).pop(_DayEventChoice.addNew()),
               ),
             ],
           ),
