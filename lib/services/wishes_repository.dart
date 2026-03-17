@@ -56,9 +56,12 @@ class WishesRepository {
         .where('userId', isEqualTo: partnerUserId)
         .where('visibleToPartners', isEqualTo: true)
         .where('isForNearFuture', isEqualTo: true)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((s) => s.docs.map((d) => Wish.fromFirestore(d)).toList());
+        .map((s) {
+          final list = s.docs.map((d) => Wish.fromFirestore(d)).toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list;
+        });
   }
 
   Future<String?> sendWishRequest(String toUserId) async {

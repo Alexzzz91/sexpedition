@@ -10,6 +10,12 @@ class Wish {
   final bool isForNearFuture;
   final bool visibleToPartners;
   final DateTime createdAt;
+  /// Для type == action: типы секса (как в записи о сексе).
+  final List<String> sexTypes;
+  /// Для type == action: id поз из справочника.
+  final List<String> poseIds;
+  /// Для type == action: id или названия игрушек.
+  final List<String> toyIds;
 
   const Wish({
     required this.id,
@@ -19,6 +25,9 @@ class Wish {
     this.isForNearFuture = false,
     this.visibleToPartners = true,
     required this.createdAt,
+    this.sexTypes = const [],
+    this.poseIds = const [],
+    this.toyIds = const [],
   });
 
   String get typeLabel {
@@ -33,7 +42,7 @@ class Wish {
   }
 
   Map<String, dynamic> toMap() {
-    return {
+    final map = <String, dynamic>{
       'userId': userId,
       'type': type.name,
       'content': content,
@@ -41,11 +50,18 @@ class Wish {
       'visibleToPartners': visibleToPartners,
       'createdAt': Timestamp.fromDate(createdAt),
     };
+    if (sexTypes.isNotEmpty) map['sexTypes'] = sexTypes;
+    if (poseIds.isNotEmpty) map['poseIds'] = poseIds;
+    if (toyIds.isNotEmpty) map['toyIds'] = toyIds;
+    return map;
   }
 
   static Wish fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
     final createdAt = (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+    final sexTypes = data['sexTypes'] as List<dynamic>?;
+    final poseIds = data['poseIds'] as List<dynamic>?;
+    final toyIds = data['toyIds'] as List<dynamic>?;
     return Wish(
       id: doc.id,
       userId: data['userId'] as String,
@@ -54,6 +70,9 @@ class Wish {
       isForNearFuture: data['isForNearFuture'] as bool? ?? false,
       visibleToPartners: data['visibleToPartners'] as bool? ?? true,
       createdAt: createdAt,
+      sexTypes: sexTypes?.map((e) => e.toString()).toList() ?? const [],
+      poseIds: poseIds?.map((e) => e.toString()).toList() ?? const [],
+      toyIds: toyIds?.map((e) => e.toString()).toList() ?? const [],
     );
   }
 
@@ -65,6 +84,9 @@ class Wish {
     bool? isForNearFuture,
     bool? visibleToPartners,
     DateTime? createdAt,
+    List<String>? sexTypes,
+    List<String>? poseIds,
+    List<String>? toyIds,
   }) {
     return Wish(
       id: id ?? this.id,
@@ -74,6 +96,9 @@ class Wish {
       isForNearFuture: isForNearFuture ?? this.isForNearFuture,
       visibleToPartners: visibleToPartners ?? this.visibleToPartners,
       createdAt: createdAt ?? this.createdAt,
+      sexTypes: sexTypes ?? this.sexTypes,
+      poseIds: poseIds ?? this.poseIds,
+      toyIds: toyIds ?? this.toyIds,
     );
   }
 }

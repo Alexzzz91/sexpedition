@@ -20,7 +20,10 @@ service cloud.firestore {
     }
 
     match /events/{eventId} {
-      allow read, write: if isSignedIn() &&
+      allow read: if isSignedIn() &&
+        (resource == null || isOwner(resource.data.userId) || request.auth.uid == resource.data.partnerId
+         || (resource.data.kind == 'wish_today' && resource.data.visibleToPartners == true));
+      allow write: if isSignedIn() &&
         (resource == null || isOwner(resource.data.userId) || request.auth.uid == resource.data.partnerId);
       allow create: if isSignedIn() && isOwner(request.resource.data.userId);
     }

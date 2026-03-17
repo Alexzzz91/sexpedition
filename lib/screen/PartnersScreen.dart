@@ -89,6 +89,12 @@ class _PartnersScreenState extends State<PartnersScreen> {
           StreamBuilder<List<PartnerConnection>>(
             stream: _repo.watchIncomingRequests(),
             builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  child: Text('Ошибка загрузки: ${snapshot.error}', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                );
+              }
               if (!snapshot.hasData) return const SizedBox(height: 40, child: Center(child: CircularProgressIndicator()));
               final list = snapshot.data!;
               if (list.isEmpty) {
@@ -108,6 +114,12 @@ class _PartnersScreenState extends State<PartnersScreen> {
           StreamBuilder<List<PartnerConnection>>(
             stream: _repo.watchAcceptedPartners(),
             builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  child: Text('Ошибка загрузки: ${snapshot.error}', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                );
+              }
               if (!snapshot.hasData) return const SizedBox(height: 40, child: Center(child: CircularProgressIndicator()));
               final list = snapshot.data!;
               if (list.isEmpty) {

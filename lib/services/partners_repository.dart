@@ -70,9 +70,12 @@ class PartnersRepository {
     return _connections
         .where('toUserId', isEqualTo: uid)
         .where('status', isEqualTo: 'pending')
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((s) => s.docs.map((d) => PartnerConnection.fromFirestore(d)).toList());
+        .map((s) {
+          final list = s.docs.map((d) => PartnerConnection.fromFirestore(d)).toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list;
+        });
   }
 
   Stream<List<PartnerConnection>> watchAcceptedPartners() {

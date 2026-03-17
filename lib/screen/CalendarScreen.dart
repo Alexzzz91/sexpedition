@@ -47,12 +47,206 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return null;
   }
 
+  bool _isPartnerEvent(CalendarEvent e) {
+    final myId = _partnersRepo.currentUserId;
+    return myId != null && e.userId != myId;
+  }
+
+  Widget? _buildEventSubtitle(CalendarEvent e) {
+    final parts = <String>[];
+    final sub = _eventSubtitle(e);
+    if (sub != null) parts.add(sub);
+    if (_isPartnerEvent(e)) {
+      return FutureBuilder<String>(
+        future: _partnersRepo.getProfile(e.userId).then((p) => p?.displayLabel ?? 'Партнёр'),
+        builder: (context, snap) {
+          final from = snap.hasData ? 'от ${snap.data}' : 'от партнёра';
+          return Text(
+            parts.isEmpty ? from : '${parts.join(' · ')}\n$from',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          );
+        },
+      );
+    }
+    if (parts.isEmpty) return null;
+    return Text(parts.join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis);
+  }
+
+  /// Маркер на ячейке календаря: цвет и количество (1–3 точки).
+  Widget _buildMarkerDot(Color color, int count) {
+    final n = count.clamp(1, 3);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(n, (_) => Container(
+        margin: const EdgeInsets.symmetric(horizontal: 1),
+        width: 5,
+        height: 5,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+      )),
+    );
+  }
+
+  /// Результат диалога просмотра пожелания партнёра: закрыть, записать как секс, добавить своё пожелание.
+  static const _partnerWishClose = 0;
+  static const _partnerWishSexRecord = 1;
+  static const _partnerWishAddMyWish = 2;
+
+  Future<void> _showPartnerWishView(DateTime day, CalendarEvent e) async {
+    if (!e.isWishToday) return;
+    final endDate = day.add(const Duration(days: 2));
+    final profile = await _partnersRepo.getProfile(e.userId);
+    final fromLabel = profile?.displayLabel ?? 'Партнёр';
+    if (!mounted) return;
+    final action = await showDialog<int>(
+      context: context,
+      builder: (context) {
+        final theme = Theme.of(context);
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.card_giftcard, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Пожелание от $fromLabel')),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Период
+                Card(
+                  margin: EdgeInsets.zero,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Период', style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${day.day}.${day.month}.${day.year} — ${endDate.day}.${endDate.month}.${endDate.year}',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (e.sexTypes.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Card(
+                    margin: EdgeInsets.zero,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Тип секса', style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: e.sexTypes.map((t) => Chip(label: Text(t), materialTapTargetSize: MaterialTapTargetSize.shrinkWrap)).toList(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                if (e.contentLink?.isNotEmpty == true) ...[
+                  const SizedBox(height: 12),
+                  Card(
+                    margin: EdgeInsets.zero,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Ссылка', style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
+                          const SizedBox(height: 4),
+                          SelectableText(e.contentLink!, style: theme.textTheme.bodyMedium),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                if (e.contentText?.isNotEmpty == true) ...[
+                  const SizedBox(height: 12),
+                  Card(
+                    margin: EdgeInsets.zero,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Текст', style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
+                          const SizedBox(height: 4),
+                          SelectableText(e.contentText!, style: theme.textTheme.bodyMedium),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                if (e.imageUrl != null) ...[
+                  const SizedBox(height: 12),
+                  Card(
+                    margin: EdgeInsets.zero,
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                          child: Text('Фото', style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
+                        ),
+                        Image.network(e.imageUrl!, height: 180, width: double.infinity, fit: BoxFit.cover),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(_partnerWishClose),
+              child: const Text('Закрыть'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).pop(_partnerWishAddMyWish),
+              icon: const Icon(Icons.add_circle_outline),
+              label: const Text('Добавить своё пожелание'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(context).pop(_partnerWishSexRecord),
+              icon: const Icon(Icons.favorite),
+              label: const Text('Записать как секс'),
+            ),
+          ],
+        );
+      },
+    );
+    if (!mounted) return;
+    if (action == _partnerWishSexRecord) {
+      _showEventDialog(day, prefillFromWish: e, dayEvents: _eventsMap[CalendarEvent.toDateOnly(day)] ?? []);
+    } else if (action == _partnerWishAddMyWish) {
+      final complementLabel = fromLabel;
+      _showEventDialog(
+        day,
+        startAtWishToday: true,
+        complementToPartnerLabel: complementLabel,
+        dayEvents: _eventsMap[CalendarEvent.toDateOnly(day)] ?? [],
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Календарь 1')),
       body: StreamBuilder<List<CalendarEvent>>(
-        stream: _eventsRepo.watchEvents(),
+        stream: _eventsRepo.watchCalendarEventsWithPartners(_partnersRepo),
         builder: (context, snapshot) {
           if (snapshot.hasData) {
             final list = snapshot.data!;
@@ -82,11 +276,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   });
                   final dayEvents = _eventsMap[_normalize(selectedDay)] ?? [];
                   if (dayEvents.length == 1) {
-                    _showEventDialog(selectedDay, existing: dayEvents.first);
+                    final ev = dayEvents.first;
+                    if (_isPartnerEvent(ev)) {
+                      _showPartnerWishView(selectedDay, ev);
+                    } else {
+                      _showEventDialog(selectedDay, existing: ev, dayEvents: dayEvents);
+                    }
                   } else if (dayEvents.isNotEmpty) {
                     _showDayEventsChoice(selectedDay, dayEvents);
                   } else {
-                    _showEventDialog(selectedDay);
+                    _showEventDialog(selectedDay, dayEvents: dayEvents);
                   }
                 },
                 onFormatChanged: (format) {
@@ -95,6 +294,55 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 onPageChanged: (focusedDay) =>
                     setState(() => _focusedDay = focusedDay),
                 eventLoader: (day) => _eventsMap[_normalize(day)] ?? [],
+                calendarBuilders: CalendarBuilders<CalendarEvent>(
+                  markerBuilder: (context, day, events) {
+                    if (events.isEmpty) return null;
+                    final myId = _partnersRepo.currentUserId;
+                    final myEvents = events.where((e) => e.userId == myId).toList();
+                    final partnerWishes = events.where((e) => e.isWishToday && e.userId != myId).toList();
+                    final theme = Theme.of(context);
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (myEvents.isNotEmpty)
+                            _buildMarkerDot(theme.colorScheme.primary, myEvents.length),
+                          if (myEvents.isNotEmpty && partnerWishes.isNotEmpty) const SizedBox(width: 4),
+                          if (partnerWishes.isNotEmpty)
+                            _buildMarkerDot(theme.colorScheme.secondary, partnerWishes.length),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              // Легенда: свои события / пожелания партнёра
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildMarkerDot(Theme.of(context).colorScheme.primary, 1),
+                        const SizedBox(width: 6),
+                        Text('мои', style: Theme.of(context).textTheme.bodySmall),
+                      ],
+                    ),
+                    const SizedBox(width: 16),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildMarkerDot(Theme.of(context).colorScheme.secondary, 1),
+                        const SizedBox(width: 6),
+                        Text('пожелания партнёра', style: Theme.of(context).textTheme.bodySmall),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               if (_selectedDay != null) ...[
                 const Divider(),
@@ -124,26 +372,32 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   )
                 else
                   ...selectedDayEvents.map(
-                    (e) => ListTile(
-                      leading: Icon(
-                        e.isSexRecord
-                            ? Icons.favorite
-                            : (e.isWishToday
-                                  ? Icons.card_giftcard
-                                  : Icons.event_note),
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      title: Text(_eventTitle(e)),
-                      subtitle: _eventSubtitle(e) != null
-                          ? Text(
-                              _eventSubtitle(e)!,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            )
-                          : null,
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => _showEventDialog(_selectedDay!, existing: e),
-                    ),
+                    (e) {
+                      final isPartner = _isPartnerEvent(e);
+                      final color = isPartner
+                          ? Theme.of(context).colorScheme.secondary
+                          : Theme.of(context).colorScheme.primary;
+                      return ListTile(
+                        leading: Icon(
+                          e.isSexRecord
+                              ? Icons.favorite
+                              : (e.isWishToday
+                                    ? Icons.card_giftcard
+                                    : Icons.event_note),
+                          color: color,
+                        ),
+                        title: Text(_eventTitle(e)),
+                        subtitle: _buildEventSubtitle(e),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          if (isPartner) {
+                            _showPartnerWishView(_selectedDay!, e);
+                          } else {
+                            _showEventDialog(_selectedDay!, existing: e, dayEvents: selectedDayEvents);
+                          }
+                        },
+                      );
+                    },
                   ),
               ],
             ],
@@ -166,19 +420,32 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return list;
   }
 
-  Future<void> _showEventDialog(DateTime day, {CalendarEvent? existing}) async {
+  Future<void> _showEventDialog(DateTime day, {
+    CalendarEvent? existing,
+    CalendarEvent? prefillFromWish,
+    List<CalendarEvent>? dayEvents,
+    bool startAtWishToday = false,
+    String? complementToPartnerLabel,
+  }) async {
     final date = _normalize(day);
     final partnersList = await _loadPartnersForDialog();
     if (!mounted) return;
+
+    final myId = _partnersRepo.currentUserId;
+    final partnerWishesForDay = (dayEvents ?? []).where((ev) => ev.isWishToday && myId != null && ev.userId != myId).toList();
 
     final result = await showDialog<AddEventDialogResult>(
       context: context,
       builder: (context) => CalendarAddEventDialog(
         date: date,
         existing: existing,
+        prefillFromWish: prefillFromWish,
+        partnerWishesForDay: partnerWishesForDay,
         partnersList: partnersList,
         toysRepository: _toysRepo,
         uploadImage: (file) => uploadWishImage(file),
+        startAtWishToday: startAtWishToday,
+        complementToPartnerLabel: complementToPartnerLabel,
       ),
     );
 
@@ -290,9 +557,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
     if (choice == null || !mounted) return;
     if (choice.event != null) {
-      _showEventDialog(day, existing: choice.event);
+      if (_isPartnerEvent(choice.event!)) {
+        _showPartnerWishView(day, choice.event!);
+      } else {
+        _showEventDialog(day, existing: choice.event, dayEvents: dayEvents);
+      }
     } else {
-      _showEventDialog(day);
+      _showEventDialog(day, dayEvents: dayEvents);
     }
   }
 }

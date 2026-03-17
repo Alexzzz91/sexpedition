@@ -50,24 +50,36 @@ class AddEventDialogDelete extends AddEventDialogResult {}
 
 class AddEventDialogCancel extends AddEventDialogResult {}
 
-/// Шаг диалога: выбор типа -> форма записи о сексе или форма пожелания.
-enum _Step { choice, sexRecord, wishToday }
+/// Шаг диалога: выбор типа -> (опционально выбор пожелания) -> форма записи о сексе или форма пожелания.
+enum _Step { choice, choosePartnerWish, sexRecord, wishToday }
 
 class CalendarAddEventDialog extends StatefulWidget {
   const CalendarAddEventDialog({
     super.key,
     required this.date,
     this.existing,
+    this.prefillFromWish,
+    this.partnerWishesForDay = const [],
     required this.partnersList,
     required this.toysRepository,
     required this.uploadImage,
+    this.startAtWishToday = false,
+    this.complementToPartnerLabel,
   });
 
   final DateTime date;
   final CalendarEvent? existing;
+  /// Предзаполнение из пожелания партнёра (при открытии из просмотра пожелания).
+  final CalendarEvent? prefillFromWish;
+  /// Пожелания партнёров за день (для шага «Запись о сексе по пожеланию»).
+  final List<CalendarEvent> partnerWishesForDay;
   final List<({String userId, String label})> partnersList;
   final UserToysRepository toysRepository;
   final Future<String?> Function(File file) uploadImage;
+  /// Открыть сразу форму «Пожелание на сегодня» (например, из просмотра пожелания партнёра).
+  final bool startAtWishToday;
+  /// Подпись «В дополнение к пожеланию от [label]» в форме пожелания.
+  final String? complementToPartnerLabel;
 
   @override
   State<CalendarAddEventDialog> createState() => _CalendarAddEventDialogState();
@@ -75,25 +87,54 @@ class CalendarAddEventDialog extends StatefulWidget {
 
 class _CalendarAddEventDialogState extends State<CalendarAddEventDialog> {
   late _Step _step;
+  /// Выбранное пожелание партнёра для предзаполнения (шаг «Запись о сексе по пожеланию»).
+  CalendarEvent? _selectedWishForPrefill;
 
   @override
   void initState() {
     super.initState();
+    if (widget.prefillFromWish != null) {
+      _step = _Step.sexRecord;
+      return;
+    }
     if (widget.existing != null) {
       if (widget.existing!.isSexRecord) {
         _step = _Step.sexRecord;
       } else if (widget.existing!.isWishToday) {
         _step = _Step.wishToday;
       } else {
-        _step = _Step.choice; // legacy — показываем выбор
+        _step = _Step.choice;
       }
+    } else if (widget.startAtWishToday) {
+      _step = _Step.wishToday;
     } else {
       _step = _Step.choice;
     }
   }
 
   void _goToChoice() {
-    setState(() => _step = _Step.choice);
+    setState(() {
+      _step = _Step.choice;
+      _selectedWishForPrefill = null;
+    });
+  }
+
+  void _goToChoosePartnerWish() {
+    setState(() => _step = _Step.choosePartnerWish);
+  }
+
+  void _goToSexRecordFromWish(CalendarEvent wish) {
+    setState(() {
+      _selectedWishForPrefill = wish;
+      _step = _Step.sexRecord;
+    });
+  }
+
+  void _goBackFromSexRecordWhenFromWishList() {
+    setState(() {
+      _step = _Step.choosePartnerWish;
+      _selectedWishForPrefill = null;
+    });
   }
 
   void _goToSexRecord() {
@@ -104,18 +145,28 @@ class _CalendarAddEventDialogState extends State<CalendarAddEventDialog> {
     setState(() => _step = _Step.wishToday);
   }
 
+  CalendarEvent? get _effectivePrefill => widget.prefillFromWish ?? _selectedWishForPrefill;
+
   @override
   Widget build(BuildContext context) {
     if (_step == _Step.choice) {
       return _buildChoiceStep(context);
     }
+    if (_step == _Step.choosePartnerWish) {
+      return _buildChoosePartnerWishStep(context);
+    }
     if (_step == _Step.sexRecord) {
+      final prefill = _effectivePrefill;
+      final fromWishList = _selectedWishForPrefill != null;
       return _SexRecordForm(
         date: widget.date,
         existing: (widget.existing?.isSexRecord == true || widget.existing?.isLegacy == true) ? widget.existing : null,
+        prefillFromWish: prefill,
         partnersList: widget.partnersList,
         toysRepository: widget.toysRepository,
-        onBack: widget.existing == null ? _goToChoice : null,
+        onBack: widget.existing != null
+            ? null
+            : (fromWishList ? _goBackFromSexRecordWhenFromWishList : _goToChoice),
         onSave: (r) => Navigator.of(context).pop(r),
         onDelete: widget.existing != null ? () => Navigator.of(context).pop(AddEventDialogDelete()) : null,
         onCancel: () => Navigator.of(context).pop(AddEventDialogCancel()),
@@ -125,6 +176,7 @@ class _CalendarAddEventDialogState extends State<CalendarAddEventDialog> {
       date: widget.date,
       existing: widget.existing?.isWishToday == true ? widget.existing : null,
       uploadImage: widget.uploadImage,
+      complementToPartnerLabel: widget.complementToPartnerLabel,
       onBack: widget.existing == null ? _goToChoice : null,
       onSave: (r) => Navigator.of(context).pop(r),
       onCancel: () => Navigator.of(context).pop(AddEventDialogCancel()),
@@ -154,6 +206,13 @@ class _CalendarAddEventDialogState extends State<CalendarAddEventDialog> {
             onPressed: _goToWishToday,
             style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 48)),
           ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.favorite_border),
+            label: const Text('Запись о сексе по пожеланию'),
+            onPressed: _goToChoosePartnerWish,
+            style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 48)),
+          ),
         ],
         ),
       ),
@@ -161,6 +220,41 @@ class _CalendarAddEventDialogState extends State<CalendarAddEventDialog> {
         TextButton(
           onPressed: () => Navigator.of(context).pop(AddEventDialogCancel()),
           child: const Text('Отмена'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChoosePartnerWishStep(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Выберите пожелание партнёра'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 300),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Дата: ${widget.date.day}.${widget.date.month}.${widget.date.year}', style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(height: 16),
+            if (widget.partnerWishesForDay.isEmpty)
+              const Text('Нет пожеланий партнёров на этот день.')
+            else
+              ...widget.partnerWishesForDay.map((w) {
+                final title = w.contentText?.isNotEmpty == true
+                    ? w.contentText!
+                    : (w.sexTypes.isNotEmpty ? w.sexTypes.join(', ') : 'Пожелание');
+                return ListTile(
+                  title: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  subtitle: w.sexTypes.isNotEmpty ? Text('Тип: ${w.sexTypes.join(", ")}', style: Theme.of(context).textTheme.bodySmall) : null,
+                  onTap: () => _goToSexRecordFromWish(w),
+                );
+              }),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _goToChoice,
+          child: const Text('Назад'),
         ),
       ],
     );
@@ -173,6 +267,7 @@ class _SexRecordForm extends StatefulWidget {
   const _SexRecordForm({
     required this.date,
     this.existing,
+    this.prefillFromWish,
     required this.partnersList,
     required this.toysRepository,
     this.onBack,
@@ -183,6 +278,8 @@ class _SexRecordForm extends StatefulWidget {
 
   final DateTime date;
   final CalendarEvent? existing;
+  /// Предзаполнение из пожелания партнёра (тип секса, партнёр).
+  final CalendarEvent? prefillFromWish;
   final List<({String userId, String label})> partnersList;
   final UserToysRepository toysRepository;
   final VoidCallback? onBack;
@@ -218,6 +315,15 @@ class _SexRecordFormState extends State<_SexRecordForm> {
       if (e.durationMinutes != null) _durationController.text = e.durationMinutes.toString();
       _satisfactionRating = e.satisfactionRating;
       _noteController.text = e.note ?? '';
+    } else {
+      final prefill = widget.prefillFromWish;
+      if (prefill != null) {
+        _partnerId = prefill.userId;
+        for (final t in prefill.sexTypes) {
+          final i = sexTypeLabels.indexOf(t);
+          if (i >= 0) _sexTypeIndices.add(i);
+        }
+      }
     }
   }
 
@@ -467,6 +573,7 @@ class _WishTodayForm extends StatefulWidget {
     required this.date,
     this.existing,
     required this.uploadImage,
+    this.complementToPartnerLabel,
     this.onBack,
     required this.onSave,
     required this.onCancel,
@@ -475,6 +582,8 @@ class _WishTodayForm extends StatefulWidget {
   final DateTime date;
   final CalendarEvent? existing;
   final Future<String?> Function(File file) uploadImage;
+  /// Если задано, показываем подпись «В дополнение к пожеланию от [label]».
+  final String? complementToPartnerLabel;
   final VoidCallback? onBack;
   final void Function(AddEventDialogSaveWish) onSave;
   final VoidCallback onCancel;
@@ -561,6 +670,28 @@ class _WishTodayFormState extends State<_WishTodayForm> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (widget.complementToPartnerLabel != null) ...[
+                Card(
+                  color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
+                  margin: EdgeInsets.zero,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.add_circle_outline, size: 20, color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'В дополнение к пожеланию от ${widget.complementToPartnerLabel}',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               Text(
                 'На ближайшие 2 дня: ${widget.date.day}.${widget.date.month} — ${endDate.day}.${endDate.month}.${endDate.year}',
               style: Theme.of(context).textTheme.bodyMedium,
