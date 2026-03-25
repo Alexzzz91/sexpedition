@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sexpedition_application_1/screen/AuthScreen.dart';
 import 'package:sexpedition_application_1/screen/MainShell.dart';
+import 'package:sexpedition_application_1/services/push_notifications_service.dart';
 
 class App extends StatelessWidget {
   const App({super.key});
@@ -14,6 +15,7 @@ class App extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.active) {
           final user = snapshot.data;
           if (user == null) return const AuthScreen();
+          PushNotificationsService.instance.initialize();
           return const MainShell();
         }
         return const Scaffold(

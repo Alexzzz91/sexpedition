@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:sexpedition_application_1/data/kamasutra_poses.dart';
 import 'package:sexpedition_application_1/models/calendar_event.dart';
@@ -69,15 +70,19 @@ class CalendarAddEventDialog extends StatefulWidget {
 
   final DateTime date;
   final CalendarEvent? existing;
+
   /// Предзаполнение из пожелания партнёра (при открытии из просмотра пожелания).
   final CalendarEvent? prefillFromWish;
+
   /// Пожелания партнёров за день (для шага «Запись о сексе по пожеланию»).
   final List<CalendarEvent> partnerWishesForDay;
   final List<({String userId, String label})> partnersList;
   final UserToysRepository toysRepository;
   final Future<String?> Function(File file) uploadImage;
+
   /// Открыть сразу форму «Пожелание на сегодня» (например, из просмотра пожелания партнёра).
   final bool startAtWishToday;
+
   /// Подпись «В дополнение к пожеланию от [label]» в форме пожелания.
   final String? complementToPartnerLabel;
 
@@ -87,6 +92,7 @@ class CalendarAddEventDialog extends StatefulWidget {
 
 class _CalendarAddEventDialogState extends State<CalendarAddEventDialog> {
   late _Step _step;
+
   /// Выбранное пожелание партнёра для предзаполнения (шаг «Запись о сексе по пожеланию»).
   CalendarEvent? _selectedWishForPrefill;
 
@@ -145,7 +151,8 @@ class _CalendarAddEventDialogState extends State<CalendarAddEventDialog> {
     setState(() => _step = _Step.wishToday);
   }
 
-  CalendarEvent? get _effectivePrefill => widget.prefillFromWish ?? _selectedWishForPrefill;
+  CalendarEvent? get _effectivePrefill =>
+      widget.prefillFromWish ?? _selectedWishForPrefill;
 
   @override
   Widget build(BuildContext context) {
@@ -160,15 +167,23 @@ class _CalendarAddEventDialogState extends State<CalendarAddEventDialog> {
       final fromWishList = _selectedWishForPrefill != null;
       return _SexRecordForm(
         date: widget.date,
-        existing: (widget.existing?.isSexRecord == true || widget.existing?.isLegacy == true) ? widget.existing : null,
+        existing:
+            (widget.existing?.isSexRecord == true ||
+                widget.existing?.isLegacy == true)
+            ? widget.existing
+            : null,
         prefillFromWish: prefill,
         partnersList: widget.partnersList,
         toysRepository: widget.toysRepository,
         onBack: widget.existing != null
             ? null
-            : (fromWishList ? _goBackFromSexRecordWhenFromWishList : _goToChoice),
+            : (fromWishList
+                  ? _goBackFromSexRecordWhenFromWishList
+                  : _goToChoice),
         onSave: (r) => Navigator.of(context).pop(r),
-        onDelete: widget.existing != null ? () => Navigator.of(context).pop(AddEventDialogDelete()) : null,
+        onDelete: widget.existing != null
+            ? () => Navigator.of(context).pop(AddEventDialogDelete())
+            : null,
         onCancel: () => Navigator.of(context).pop(AddEventDialogCancel()),
       );
     }
@@ -191,29 +206,38 @@ class _CalendarAddEventDialogState extends State<CalendarAddEventDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-          Text('Дата: ${widget.date.day}.${widget.date.month}.${widget.date.year}', style: Theme.of(context).textTheme.bodyLarge),
-          const SizedBox(height: 24),
-          OutlinedButton.icon(
-            icon: const Icon(Icons.favorite),
-            label: const Text('Запись о сексе'),
-            onPressed: _goToSexRecord,
-            style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 48)),
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            icon: const Icon(Icons.card_giftcard),
-            label: const Text('Пожелание на сегодня'),
-            onPressed: _goToWishToday,
-            style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 48)),
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            icon: const Icon(Icons.favorite_border),
-            label: const Text('Запись о сексе по пожеланию'),
-            onPressed: _goToChoosePartnerWish,
-            style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 48)),
-          ),
-        ],
+            Text(
+              'Дата: ${widget.date.day}.${widget.date.month}.${widget.date.year}',
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.favorite),
+              label: const Text('Запись о сексе'),
+              onPressed: _goToSexRecord,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 48),
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.card_giftcard),
+              label: const Text('Пожелание на сегодня'),
+              onPressed: _goToWishToday,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 48),
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.favorite_border),
+              label: const Text('Запись о сексе по пожеланию'),
+              onPressed: _goToChoosePartnerWish,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 48),
+              ),
+            ),
+          ],
         ),
       ),
       actions: [
@@ -233,7 +257,10 @@ class _CalendarAddEventDialogState extends State<CalendarAddEventDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Дата: ${widget.date.day}.${widget.date.month}.${widget.date.year}', style: Theme.of(context).textTheme.bodyMedium),
+            Text(
+              'Дата: ${widget.date.day}.${widget.date.month}.${widget.date.year}',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
             const SizedBox(height: 16),
             if (widget.partnerWishesForDay.isEmpty)
               const Text('Нет пожеланий партнёров на этот день.')
@@ -241,22 +268,28 @@ class _CalendarAddEventDialogState extends State<CalendarAddEventDialog> {
               ...widget.partnerWishesForDay.map((w) {
                 final title = w.contentText?.isNotEmpty == true
                     ? w.contentText!
-                    : (w.sexTypes.isNotEmpty ? w.sexTypes.join(', ') : 'Пожелание');
+                    : (w.sexTypes.isNotEmpty
+                          ? w.sexTypes.join(', ')
+                          : 'Пожелание');
                 return ListTile(
-                  title: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis),
-                  subtitle: w.sexTypes.isNotEmpty ? Text('Тип: ${w.sexTypes.join(", ")}', style: Theme.of(context).textTheme.bodySmall) : null,
+                  title: Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: w.sexTypes.isNotEmpty
+                      ? Text(
+                          'Тип: ${w.sexTypes.join(", ")}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        )
+                      : null,
                   onTap: () => _goToSexRecordFromWish(w),
                 );
               }),
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _goToChoice,
-          child: const Text('Назад'),
-        ),
-      ],
+      actions: [TextButton(onPressed: _goToChoice, child: const Text('Назад'))],
     );
   }
 }
@@ -278,6 +311,7 @@ class _SexRecordForm extends StatefulWidget {
 
   final DateTime date;
   final CalendarEvent? existing;
+
   /// Предзаполнение из пожелания партнёра (тип секса, партнёр).
   final CalendarEvent? prefillFromWish;
   final List<({String userId, String label})> partnersList;
@@ -312,7 +346,8 @@ class _SexRecordFormState extends State<_SexRecordForm> {
       }
       _poseIds.addAll(e.poseIds);
       _toyIds.addAll(e.toyIds);
-      if (e.durationMinutes != null) _durationController.text = e.durationMinutes.toString();
+      if (e.durationMinutes != null)
+        _durationController.text = e.durationMinutes.toString();
       _satisfactionRating = e.satisfactionRating;
       _noteController.text = e.note ?? '';
     } else {
@@ -334,7 +369,8 @@ class _SexRecordFormState extends State<_SexRecordForm> {
     super.dispose();
   }
 
-  List<String> get _sexTypes => _sexTypeIndices.map((i) => sexTypeLabels[i]).toList();
+  List<String> get _sexTypes =>
+      _sexTypeIndices.map((i) => sexTypeLabels[i]).toList();
 
   void _toggleSexType(int index) {
     setState(() {
@@ -356,6 +392,86 @@ class _SexRecordFormState extends State<_SexRecordForm> {
     });
   }
 
+  KamasutraPose? _poseById(String id) {
+    for (final p in kamasutraPoses) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
+
+  Future<void> _showPoseDetails(KamasutraPose pose) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return SafeArea(
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.82,
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                Text(pose.label, style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.45),
+                    height: 180,
+                    alignment: Alignment.center,
+                    child: SvgPicture.asset(pose.imageAsset),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  pose.description,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Пошагово',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                for (int i = 0; i < pose.stepAssets.length; i++) ...[
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest
+                                  .withValues(alpha: 0.42),
+                              height: 150,
+                              alignment: Alignment.center,
+                              child: SvgPicture.asset(pose.stepAssets[i]),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            pose.stepTexts.length > i
+                                ? pose.stepTexts[i]
+                                : 'Шаг ${i + 1}',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _toggleToy(String id) {
     setState(() {
       if (_toyIds.contains(id)) {
@@ -368,173 +484,295 @@ class _SexRecordFormState extends State<_SexRecordForm> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Row(
-        children: [
-          if (widget.onBack != null)
-            IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: widget.onBack,
-            ),
-          Expanded(child: Text(widget.existing != null ? 'Редактировать запись о сексе' : 'Запись о сексе')),
-        ],
-      ),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 300),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Дата: ${widget.date.day}.${widget.date.month}.${widget.date.year}', style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(height: 16),
-            if (widget.partnersList.isNotEmpty) ...[
-              DropdownButtonFormField<String?>(
-                value: _partnerId,
-                decoration: const InputDecoration(labelText: 'Партнёр', border: OutlineInputBorder()),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('Не выбран')),
-                  ...widget.partnersList.map((p) => DropdownMenuItem(value: p.userId, child: Text(p.label))),
+    final title = widget.existing != null ? 'Редактировать запись о сексе' : 'Запись о сексе';
+    return Dialog(
+      insetPadding: const EdgeInsets.all(16),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
+              child: Row(
+                children: [
+                  if (widget.onBack != null)
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: widget.onBack,
+                    ),
+                  Expanded(child: Text(title, style: Theme.of(context).textTheme.titleLarge)),
+                  IconButton(
+                    tooltip: 'Закрыть',
+                    onPressed: widget.onCancel,
+                    icon: const Icon(Icons.close),
+                  ),
                 ],
-                onChanged: (v) => setState(() => _partnerId = v),
+              ),
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+              Text(
+                'Дата: ${widget.date.day}.${widget.date.month}.${widget.date.year}',
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 16),
-            ],
-            Text('Тип секса', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: List.generate(sexTypeLabels.length, (i) {
-                final selected = _sexTypeIndices.contains(i);
-                return FilterChip(
-                  label: Text(sexTypeLabels[i]),
-                  selected: selected,
-                  onSelected: (_) => _toggleSexType(i),
-                );
-              }),
-            ),
-            const SizedBox(height: 16),
-            Text('Позы', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 6),
-            SizedBox(
-              height: 120,
-              child: SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final p in kamasutraPoses)
-                      CheckboxListTile(
-                        title: Text(p.label),
-                        value: _poseIds.contains(p.id),
-                        onChanged: (_) => _togglePose(p.id),
-                        controlAffinity: ListTileControlAffinity.leading,
-                        dense: true,
+              if (widget.partnersList.isNotEmpty) ...[
+                DropdownButtonFormField<String?>(
+                  initialValue: _partnerId,
+                  decoration: const InputDecoration(
+                    labelText: 'Партнёр',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: [
+                    const DropdownMenuItem(
+                      value: null,
+                      child: Text('Не выбран'),
+                    ),
+                    ...widget.partnersList.map(
+                      (p) => DropdownMenuItem(
+                        value: p.userId,
+                        child: Text(p.label),
                       ),
+                    ),
+                  ],
+                  onChanged: (v) => setState(() => _partnerId = v),
+                ),
+                const SizedBox(height: 16),
+              ],
+              Text('Тип секса', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: List.generate(sexTypeLabels.length, (i) {
+                  final selected = _sexTypeIndices.contains(i);
+                  return FilterChip(
+                    label: Text(sexTypeLabels[i]),
+                    selected: selected,
+                    onSelected: (_) => _toggleSexType(i),
+                  );
+                }),
+              ),
+              const SizedBox(height: 16),
+              Text('Позы', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final p in kamasutraPoses)
+                    SizedBox(
+                      width: 240,
+                      height: 165,
+                      child: Material(
+                            borderRadius: BorderRadius.circular(12),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest
+                                .withValues(
+                                  alpha: _poseIds.contains(p.id) ? 0.35 : 0.18,
+                                ),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: () => _togglePose(p.id),
+                              child: Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: Column(
+                                  children: [
+                                    Expanded(
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(10),
+                                        child: Container(
+                                          width: double.infinity,
+                                          color: Theme.of(context).colorScheme.surface,
+                                          alignment: Alignment.center,
+                                          child: SvgPicture.asset(p.imageAsset),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            p.label,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context).textTheme.bodySmall,
+                                          ),
+                                        ),
+                                        IconButton(
+                                          iconSize: 18,
+                                          visualDensity: VisualDensity.compact,
+                                          onPressed: () => _showPoseDetails(p),
+                                          icon: const Icon(Icons.info_outline),
+                                        ),
+                                        Checkbox(
+                                          value: _poseIds.contains(p.id),
+                                          onChanged: (_) => _togglePose(p.id),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                    ),
+                ],
+              ),
+              if (_poseIds.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: _poseIds.map((id) {
+                    final pose = _poseById(id);
+                    return InputChip(
+                      label: Text(pose?.label ?? id),
+                      onDeleted: () => _togglePose(id),
+                    );
+                  }).toList(),
+                ),
+              ],
+              const SizedBox(height: 8),
+              StreamBuilder<List<UserToy>>(
+                stream: widget.toysRepository.watchToys(),
+                builder: (context, snap) {
+                  final toys = snap.data ?? [];
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'Игрушки',
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          const SizedBox(width: 8),
+                          TextButton.icon(
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('Добавить'),
+                            onPressed: () => _showAddToyDialog(context, toys),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      if (toys.isEmpty)
+                        const Text(
+                          'Список пуст. Нажмите «Добавить».',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        )
+                      else
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: toys.map((t) {
+                            final selected = _toyIds.contains(t.id);
+                            return FilterChip(
+                              label: Text(t.name),
+                              selected: selected,
+                              onSelected: (_) => _toggleToy(t.id),
+                            );
+                          }).toList(),
+                        ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _durationController,
+                decoration: const InputDecoration(
+                  labelText: 'Длительность (минуты)',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Оценка удовлетворённости (1–5)',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              Row(
+                children: List.generate(5, (i) {
+                  final value = i + 1;
+                  final selected = _satisfactionRating == value;
+                  return IconButton(
+                    icon: Icon(selected ? Icons.star : Icons.star_border),
+                    color: selected ? Colors.amber : null,
+                    onPressed: () => setState(
+                      () => _satisfactionRating = selected ? null : value,
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _noteController,
+                decoration: const InputDecoration(
+                  labelText: 'Заметка',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 2,
+              ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 8),
-            StreamBuilder<List<UserToy>>(
-              stream: widget.toysRepository.watchToys(),
-              builder: (context, snap) {
-                final toys = snap.data ?? [];
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        Text('Игрушки', style: Theme.of(context).textTheme.titleSmall),
-                        const SizedBox(width: 8),
-                        TextButton.icon(
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Добавить'),
-                          onPressed: () => _showAddToyDialog(context, toys),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    if (toys.isEmpty)
-                      const Text('Список пуст. Нажмите «Добавить».', style: TextStyle(fontSize: 12, color: Colors.grey))
-                    else
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: toys.map((t) {
-                          final selected = _toyIds.contains(t.id);
-                          return FilterChip(
-                            label: Text(t.name),
-                            selected: selected,
-                            onSelected: (_) => _toggleToy(t.id),
-                          );
-                        }).toList(),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+              child: Row(
+                children: [
+                  if (widget.onDelete != null)
+                    TextButton(
+                      onPressed: widget.onDelete,
+                      child: Text(
+                        'Удалить',
+                        style: TextStyle(color: Theme.of(context).colorScheme.error),
                       ),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _durationController,
-              decoration: const InputDecoration(
-                labelText: 'Длительность (минуты)',
-                border: OutlineInputBorder(),
+                    ),
+                  const Spacer(),
+                  TextButton(onPressed: widget.onCancel, child: const Text('Отмена')),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: () {
+                      final duration = int.tryParse(_durationController.text.trim());
+                      widget.onSave(
+                        AddEventDialogSaveSexRecord(
+                          date: widget.date,
+                          partnerId: _partnerId,
+                          sexTypes: _sexTypes,
+                          poseIds: _poseIds.toList(),
+                          toyIds: _toyIds.toList(),
+                          durationMinutes: duration,
+                          satisfactionRating: _satisfactionRating,
+                          note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
+                        ),
+                      );
+                    },
+                    child: Text(widget.existing != null ? 'Сохранить' : 'Добавить'),
+                  ),
+                ],
               ),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 12),
-            Text('Оценка удовлетворённости (1–5)', style: Theme.of(context).textTheme.titleSmall),
-            Row(
-              children: List.generate(5, (i) {
-                final value = i + 1;
-                final selected = _satisfactionRating == value;
-                return IconButton(
-                  icon: Icon(selected ? Icons.star : Icons.star_border),
-                  color: selected ? Colors.amber : null,
-                  onPressed: () => setState(() => _satisfactionRating = selected ? null : value),
-                );
-              }),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _noteController,
-              decoration: const InputDecoration(labelText: 'Заметка', border: OutlineInputBorder()),
-              maxLines: 2,
             ),
           ],
         ),
-        ),
       ),
-      actions: [
-        if (widget.onDelete != null)
-          TextButton(
-            onPressed: widget.onDelete,
-            child: Text('Удалить', style: TextStyle(color: Theme.of(context).colorScheme.error)),
-          ),
-        TextButton(onPressed: widget.onCancel, child: const Text('Отмена')),
-        FilledButton(
-          onPressed: () {
-            final duration = int.tryParse(_durationController.text.trim());
-            widget.onSave(AddEventDialogSaveSexRecord(
-              date: widget.date,
-              partnerId: _partnerId,
-              sexTypes: _sexTypes,
-              poseIds: _poseIds.toList(),
-              toyIds: _toyIds.toList(),
-              durationMinutes: duration,
-              satisfactionRating: _satisfactionRating,
-              note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
-            ));
-          },
-          child: Text(widget.existing != null ? 'Сохранить' : 'Добавить'),
-        ),
-      ],
     );
   }
 
-  Future<void> _showAddToyDialog(BuildContext context, List<UserToy> toys) async {
+  Future<void> _showAddToyDialog(
+    BuildContext context,
+    List<UserToy> toys,
+  ) async {
     final nameController = TextEditingController();
     final added = await showDialog<bool>(
       context: context,
@@ -542,11 +780,17 @@ class _SexRecordFormState extends State<_SexRecordForm> {
         title: const Text('Новая игрушка'),
         content: TextField(
           controller: nameController,
-          decoration: const InputDecoration(labelText: 'Название', border: OutlineInputBorder()),
+          decoration: const InputDecoration(
+            labelText: 'Название',
+            border: OutlineInputBorder(),
+          ),
           autofocus: true,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Отмена')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Отмена'),
+          ),
           FilledButton(
             onPressed: () async {
               final name = nameController.text.trim();
@@ -582,6 +826,7 @@ class _WishTodayForm extends StatefulWidget {
   final DateTime date;
   final CalendarEvent? existing;
   final Future<String?> Function(File file) uploadImage;
+
   /// Если задано, показываем подпись «В дополнение к пожеланию от [label]».
   final String? complementToPartnerLabel;
   final VoidCallback? onBack;
@@ -624,7 +869,8 @@ class _WishTodayFormState extends State<_WishTodayForm> {
     super.dispose();
   }
 
-  List<String> get _sexTypes => _sexTypeIndices.map((i) => sexTypeLabels[i]).toList();
+  List<String> get _sexTypes =>
+      _sexTypeIndices.map((i) => sexTypeLabels[i]).toList();
 
   void _toggleSexType(int index) {
     setState(() {
@@ -643,7 +889,12 @@ class _WishTodayFormState extends State<_WishTodayForm> {
     setState(() => _uploading = true);
     try {
       final url = await widget.uploadImage(file);
-      if (mounted) setState(() { _imageUrl = url; _pickedFile = file; _uploading = false; });
+      if (mounted)
+        setState(() {
+          _imageUrl = url;
+          _pickedFile = file;
+          _uploading = false;
+        });
     } catch (_) {
       if (mounted) setState(() => _uploading = false);
     }
@@ -660,7 +911,13 @@ class _WishTodayFormState extends State<_WishTodayForm> {
               icon: const Icon(Icons.arrow_back),
               onPressed: widget.onBack,
             ),
-          Expanded(child: Text(widget.existing != null ? 'Редактировать пожелание' : 'Пожелание на сегодня')),
+          Expanded(
+            child: Text(
+              widget.existing != null
+                  ? 'Редактировать пожелание'
+                  : 'Пожелание на сегодня',
+            ),
+          ),
         ],
       ),
       content: ConstrainedBox(
@@ -672,13 +929,22 @@ class _WishTodayFormState extends State<_WishTodayForm> {
             children: [
               if (widget.complementToPartnerLabel != null) ...[
                 Card(
-                  color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer.withValues(alpha: 0.5),
                   margin: EdgeInsets.zero,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     child: Row(
                       children: [
-                        Icon(Icons.add_circle_outline, size: 20, color: Theme.of(context).colorScheme.primary),
+                        Icon(
+                          Icons.add_circle_outline,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -694,75 +960,97 @@ class _WishTodayFormState extends State<_WishTodayForm> {
               ],
               Text(
                 'На ближайшие 2 дня: ${widget.date.day}.${widget.date.month} — ${endDate.day}.${endDate.month}.${endDate.year}',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 16),
-            Text('Тип секса', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: List.generate(sexTypeLabels.length, (i) {
-                final selected = _sexTypeIndices.contains(i);
-                return FilterChip(
-                  label: Text(sexTypeLabels[i]),
-                  selected: selected,
-                  onSelected: (_) => _toggleSexType(i),
-                );
-              }),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _linkController,
-              decoration: const InputDecoration(
-                labelText: 'Ссылка на фильм или игрушку',
-                border: OutlineInputBorder(),
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
-              keyboardType: TextInputType.url,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _textController,
-              decoration: const InputDecoration(
-                labelText: 'Текст пожелания',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 16),
+              Text('Тип секса', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: List.generate(sexTypeLabels.length, (i) {
+                  final selected = _sexTypeIndices.contains(i);
+                  return FilterChip(
+                    label: Text(sexTypeLabels[i]),
+                    selected: selected,
+                    onSelected: (_) => _toggleSexType(i),
+                  );
+                }),
               ),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 12),
-            if (_imageUrl != null || _pickedFile != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: [
-                    if (_pickedFile != null)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.file(_pickedFile!, width: 64, height: 64, fit: BoxFit.cover),
-                      )
-                    else if (_imageUrl != null)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(_imageUrl!, width: 64, height: 64, fit: BoxFit.cover),
-                      ),
-                    const SizedBox(width: 8),
-                    TextButton(
-                      onPressed: () => setState(() { _imageUrl = null; _pickedFile = null; }),
-                      child: const Text('Удалить'),
-                    ),
-                  ],
+              const SizedBox(height: 16),
+              TextField(
+                controller: _linkController,
+                decoration: const InputDecoration(
+                  labelText: 'Ссылка на фильм или игрушку',
+                  border: OutlineInputBorder(),
                 ),
+                keyboardType: TextInputType.url,
               ),
-            OutlinedButton.icon(
-              icon: _uploading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.add_photo_alternate),
-              label: Text(_uploading ? 'Загрузка…' : 'Прикрепить изображение'),
-              onPressed: _uploading ? null : _pickAndUploadImage,
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _textController,
+                decoration: const InputDecoration(
+                  labelText: 'Текст пожелания',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 12),
+              if (_imageUrl != null || _pickedFile != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      if (_pickedFile != null)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(
+                            _pickedFile!,
+                            width: 64,
+                            height: 64,
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      else if (_imageUrl != null)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            _imageUrl!,
+                            width: 64,
+                            height: 64,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: () => setState(() {
+                          _imageUrl = null;
+                          _pickedFile = null;
+                        }),
+                        child: const Text('Удалить'),
+                      ),
+                    ],
+                  ),
+                ),
+              OutlinedButton.icon(
+                icon: _uploading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.add_photo_alternate),
+                label: Text(
+                  _uploading ? 'Загрузка…' : 'Прикрепить изображение',
+                ),
+                onPressed: _uploading ? null : _pickAndUploadImage,
+              ),
+              const SizedBox(height: 16),
               CheckboxListTile(
                 title: const Text('Видно партнёрам'),
                 value: _visibleToPartners,
-                onChanged: (v) => setState(() => _visibleToPartners = v ?? true),
+                onChanged: (v) =>
+                    setState(() => _visibleToPartners = v ?? true),
                 controlAffinity: ListTileControlAffinity.leading,
               ),
             ],
@@ -773,14 +1061,20 @@ class _WishTodayFormState extends State<_WishTodayForm> {
         TextButton(onPressed: widget.onCancel, child: const Text('Отмена')),
         FilledButton(
           onPressed: () {
-            widget.onSave(AddEventDialogSaveWish(
-              date: widget.date,
-              sexTypes: _sexTypes,
-              contentLink: _linkController.text.trim().isEmpty ? null : _linkController.text.trim(),
-              contentText: _textController.text.trim().isEmpty ? null : _textController.text.trim(),
-              imageUrl: _imageUrl,
-              visibleToPartners: _visibleToPartners,
-            ));
+            widget.onSave(
+              AddEventDialogSaveWish(
+                date: widget.date,
+                sexTypes: _sexTypes,
+                contentLink: _linkController.text.trim().isEmpty
+                    ? null
+                    : _linkController.text.trim(),
+                contentText: _textController.text.trim().isEmpty
+                    ? null
+                    : _textController.text.trim(),
+                imageUrl: _imageUrl,
+                visibleToPartners: _visibleToPartners,
+              ),
+            );
           },
           child: Text(widget.existing != null ? 'Сохранить' : 'Создать'),
         ),

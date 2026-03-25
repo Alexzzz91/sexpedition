@@ -50,31 +50,98 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Профиль')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          if (user != null) ...[
-            ListTile(
-              title: const Text('Email'),
-              subtitle: Text(user.email ?? '—'),
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: LinearGradient(
+                colors: [
+                  theme.colorScheme.primary.withValues(alpha: 0.22),
+                  theme.colorScheme.surface,
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.25)),
             ),
-            ListTile(
-              title: const Text('Имя'),
-              subtitle: Text(user.displayName?.isNotEmpty == true ? user.displayName! : '—'),
-              trailing: IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: () => _editName(context),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.25),
+                  child: Icon(Icons.favorite, color: theme.colorScheme.primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    user?.displayName?.isNotEmpty == true ? user!.displayName! : 'Ваш приватный профиль',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (user != null) ...[
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.alternate_email),
+                title: const Text('Email'),
+                subtitle: Text(user.email ?? '—'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.person),
+                title: const Text('Имя'),
+                subtitle: Text(user.displayName?.isNotEmpty == true ? user.displayName! : '—'),
+                trailing: IconButton(
+                  icon: const Icon(Icons.edit),
+                  onPressed: () => _editName(context),
+                ),
               ),
             ),
           ],
           const SizedBox(height: 24),
-          FilledButton.tonal(
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.gavel_outlined),
+              title: const Text('Лицензии визуалов поз'),
+              subtitle: const Text('Реестр: docs/kamasutra_assets_licenses.md'),
+              onTap: () {
+                showDialog<void>(
+                  context: context,
+                  builder: (c) => AlertDialog(
+                    title: const Text('Лицензии ассетов'),
+                    content: const Text(
+                      'Полный реестр доступен в файле:\n'
+                      'docs/kamasutra_assets_licenses.md',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(c).pop(),
+                        child: const Text('Ок'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
             onPressed: () async {
               await FirebaseAuth.instance.signOut();
             },
-            child: const Text('Выйти'),
+            icon: const Icon(Icons.logout),
+            label: const Text('Выйти'),
           ),
         ],
       ),

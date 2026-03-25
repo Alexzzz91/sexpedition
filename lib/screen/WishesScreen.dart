@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:sexpedition_application_1/data/kamasutra_poses.dart';
-import 'package:sexpedition_application_1/models/calendar_event.dart' show sexTypeLabels;
+import 'package:sexpedition_application_1/models/calendar_event.dart'
+    show sexTypeLabels;
 import 'package:sexpedition_application_1/models/partner_connection.dart';
 import 'package:sexpedition_application_1/models/user_profile.dart';
 import 'package:sexpedition_application_1/models/user_toy.dart';
@@ -9,6 +11,7 @@ import 'package:sexpedition_application_1/models/wish_request.dart';
 import 'package:sexpedition_application_1/services/partners_repository.dart';
 import 'package:sexpedition_application_1/services/user_toys_repository.dart';
 import 'package:sexpedition_application_1/services/wishes_repository.dart';
+import 'package:sexpedition_application_1/screen/WishNotificationsScreen.dart';
 
 class WishesScreen extends StatefulWidget {
   const WishesScreen({super.key});
@@ -17,7 +20,8 @@ class WishesScreen extends StatefulWidget {
   State<WishesScreen> createState() => _WishesScreenState();
 }
 
-class _WishesScreenState extends State<WishesScreen> with SingleTickerProviderStateMixin {
+class _WishesScreenState extends State<WishesScreen>
+    with SingleTickerProviderStateMixin {
   final WishesRepository _wishesRepo = WishesRepository();
   final PartnersRepository _partnersRepo = PartnersRepository();
   final UserToysRepository _toysRepo = UserToysRepository();
@@ -42,8 +46,28 @@ class _WishesScreenState extends State<WishesScreen> with SingleTickerProviderSt
     return Scaffold(
       appBar: AppBar(
         title: const Text('Желания'),
+        actions: [
+          IconButton(
+            tooltip: 'Уведомления',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (context) => const WishNotificationsScreen(),
+              ),
+            ),
+            icon: const Icon(Icons.notifications),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
+          dividerColor: Colors.transparent,
+          indicatorSize: TabBarIndicatorSize.tab,
+          indicator: BoxDecoration(
+            color: Theme.of(
+              context,
+            ).colorScheme.primary.withValues(alpha: 0.20),
+            borderRadius: BorderRadius.circular(12),
+          ),
           tabs: const [
             Tab(text: 'Мой список'),
             Tab(text: 'Партнёры'),
@@ -54,9 +78,19 @@ class _WishesScreenState extends State<WishesScreen> with SingleTickerProviderSt
       body: TabBarView(
         controller: _tabController,
         children: [
-          _MyWishesList(stream: _myWishesStream, repo: _wishesRepo, toysRepo: _toysRepo),
-          _PartnersWishesTab(partnersRepo: _partnersRepo, wishesRepo: _wishesRepo),
-          _WishRequestsTab(partnersRepo: _partnersRepo, wishesRepo: _wishesRepo),
+          _MyWishesList(
+            stream: _myWishesStream,
+            repo: _wishesRepo,
+            toysRepo: _toysRepo,
+          ),
+          _PartnersWishesTab(
+            partnersRepo: _partnersRepo,
+            wishesRepo: _wishesRepo,
+          ),
+          _WishRequestsTab(
+            partnersRepo: _partnersRepo,
+            wishesRepo: _wishesRepo,
+          ),
         ],
       ),
     );
@@ -64,7 +98,11 @@ class _WishesScreenState extends State<WishesScreen> with SingleTickerProviderSt
 }
 
 class _MyWishesList extends StatelessWidget {
-  const _MyWishesList({required this.stream, required this.repo, required this.toysRepo});
+  const _MyWishesList({
+    required this.stream,
+    required this.repo,
+    required this.toysRepo,
+  });
   final Stream<List<Wish>> stream;
   final WishesRepository repo;
   final UserToysRepository toysRepo;
@@ -81,9 +119,15 @@ class _MyWishesList extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('Ошибка: ${snapshot.error}', textAlign: TextAlign.center),
+                  Text(
+                    'Ошибка: ${snapshot.error}',
+                    textAlign: TextAlign.center,
+                  ),
                   const SizedBox(height: 16),
-                  const Text('Проверьте правила Firestore и индексы для коллекции wishes.', textAlign: TextAlign.center),
+                  const Text(
+                    'Проверьте правила Firestore и индексы для коллекции wishes.',
+                    textAlign: TextAlign.center,
+                  ),
                 ],
               ),
             ),
@@ -101,7 +145,8 @@ class _MyWishesList extends StatelessWidget {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: FilledButton.icon(
-                  onPressed: () => _showAddOrEditWishDialog(context, repo, toysRepo, null),
+                  onPressed: () =>
+                      _showAddOrEditWishDialog(context, repo, toysRepo, null),
                   icon: const Icon(Icons.add),
                   label: const Text('Добавить желание'),
                 ),
@@ -111,7 +156,8 @@ class _MyWishesList extends StatelessWidget {
             return _WishTile(
               wish: wish,
               repo: repo,
-              onTap: () => _showAddOrEditWishDialog(context, repo, toysRepo, wish),
+              onTap: () =>
+                  _showAddOrEditWishDialog(context, repo, toysRepo, wish),
             );
           },
         );
@@ -123,15 +169,21 @@ class _MyWishesList extends StatelessWidget {
 String _wishTileTitle(Wish wish) {
   if (wish.type == WishType.action) {
     if (wish.content.trim().isNotEmpty) return wish.content;
-    if (wish.sexTypes.isNotEmpty) return 'Действие: ${wish.sexTypes.join(", ")}';
-    if (wish.poseIds.isNotEmpty || wish.toyIds.isNotEmpty) return 'Действие (позы/игрушки)';
+    if (wish.sexTypes.isNotEmpty)
+      return 'Действие: ${wish.sexTypes.join(", ")}';
+    if (wish.poseIds.isNotEmpty || wish.toyIds.isNotEmpty)
+      return 'Действие (позы/игрушки)';
     return 'Действие';
   }
   return wish.content;
 }
 
 class _WishTile extends StatelessWidget {
-  const _WishTile({required this.wish, required this.repo, required this.onTap});
+  const _WishTile({
+    required this.wish,
+    required this.repo,
+    required this.onTap,
+  });
   final Wish wish;
   final WishesRepository repo;
   final VoidCallback onTap;
@@ -148,14 +200,21 @@ class _WishTile extends StatelessWidget {
             if (wish.isForNearFuture) ...[
               const SizedBox(width: 8),
               Chip(
-                label: const Text('На ближайшее время', style: TextStyle(fontSize: 10)),
+                label: const Text(
+                  'На ближайшее время',
+                  style: TextStyle(fontSize: 10),
+                ),
                 padding: EdgeInsets.zero,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             ],
             if (!wish.visibleToPartners) ...[
               const SizedBox(width: 8),
-              Icon(Icons.visibility_off, size: 14, color: Theme.of(context).colorScheme.outline),
+              Icon(
+                Icons.visibility_off,
+                size: 14,
+                color: Theme.of(context).colorScheme.outline,
+              ),
             ],
           ],
         ),
@@ -169,8 +228,14 @@ class _WishTile extends StatelessWidget {
                 builder: (c) => AlertDialog(
                   title: const Text('Удалить желание?'),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Нет')),
-                    FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Да')),
+                    TextButton(
+                      onPressed: () => Navigator.pop(c, false),
+                      child: const Text('Нет'),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(c, true),
+                      child: const Text('Да'),
+                    ),
                   ],
                 ),
               );
@@ -207,42 +272,54 @@ class _WishDialogResult {
   final List<String> toyIds;
 }
 
-Future<void> _showAddOrEditWishDialog(BuildContext context, WishesRepository repo, UserToysRepository toysRepo, Wish? existing) async {
+Future<void> _showAddOrEditWishDialog(
+  BuildContext context,
+  WishesRepository repo,
+  UserToysRepository toysRepo,
+  Wish? existing,
+) async {
   final result = await showDialog<_WishDialogResult>(
     context: context,
-    builder: (context) => _AddOrEditWishDialog(
-      existing: existing,
-      toysRepo: toysRepo,
-    ),
+    builder: (context) =>
+        _AddOrEditWishDialog(existing: existing, toysRepo: toysRepo),
   );
 
   if (result == null || !context.mounted) return;
   if (result.type != WishType.action && result.content.trim().isEmpty) return;
-  if (result.type == WishType.action && result.sexTypes.isEmpty && result.poseIds.isEmpty && result.toyIds.isEmpty && result.content.trim().isEmpty) return;
+  if (result.type == WishType.action &&
+      result.sexTypes.isEmpty &&
+      result.poseIds.isEmpty &&
+      result.toyIds.isEmpty &&
+      result.content.trim().isEmpty)
+    return;
 
   if (existing != null) {
-    await repo.updateWish(existing.copyWith(
-      type: result.type,
-      content: result.content.trim(),
-      isForNearFuture: result.isForNearFuture,
-      visibleToPartners: result.visibleToPartners,
-      sexTypes: result.sexTypes,
-      poseIds: result.poseIds,
-      toyIds: result.toyIds,
-    ));
+    await repo.updateWish(
+      existing.copyWith(
+        type: result.type,
+        content: result.content.trim(),
+        isForNearFuture: result.isForNearFuture,
+        visibleToPartners: result.visibleToPartners,
+        sexTypes: result.sexTypes,
+        poseIds: result.poseIds,
+        toyIds: result.toyIds,
+      ),
+    );
   } else {
-    await repo.addWish(Wish(
-      id: '',
-      userId: '',
-      type: result.type,
-      content: result.content.trim(),
-      isForNearFuture: result.isForNearFuture,
-      visibleToPartners: result.visibleToPartners,
-      createdAt: DateTime.now(),
-      sexTypes: result.sexTypes,
-      poseIds: result.poseIds,
-      toyIds: result.toyIds,
-    ));
+    await repo.addWish(
+      Wish(
+        id: '',
+        userId: '',
+        type: result.type,
+        content: result.content.trim(),
+        isForNearFuture: result.isForNearFuture,
+        visibleToPartners: result.visibleToPartners,
+        createdAt: DateTime.now(),
+        sexTypes: result.sexTypes,
+        poseIds: result.poseIds,
+        toyIds: result.toyIds,
+      ),
+    );
   }
 }
 
@@ -309,6 +386,73 @@ class _AddOrEditWishDialogState extends State<_AddOrEditWishDialog> {
     });
   }
 
+  KamasutraPose? _poseById(String id) {
+    for (final p in kamasutraPoses) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
+
+  Future<void> _showPoseDetails(KamasutraPose pose) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.82,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Text(pose.label, style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  height: 180,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+                  alignment: Alignment.center,
+                  child: SvgPicture.asset(pose.imageAsset),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(pose.description),
+              const SizedBox(height: 16),
+              for (int i = 0; i < pose.stepAssets.length; i++)
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            height: 140,
+                            width: double.infinity,
+                            color: Theme.of(context).colorScheme.surface,
+                            alignment: Alignment.center,
+                            child: SvgPicture.asset(pose.stepAssets[i]),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          pose.stepTexts.length > i
+                              ? pose.stepTexts[i]
+                              : 'Шаг ${i + 1}',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _toggleToy(String id) {
     setState(() {
       if (_toyIds.contains(id)) {
@@ -319,160 +463,319 @@ class _AddOrEditWishDialogState extends State<_AddOrEditWishDialog> {
     });
   }
 
-  List<String> get _sexTypes => _sexTypeIndices.map((i) => sexTypeLabels[i]).toList();
+  List<String> get _sexTypes =>
+      _sexTypeIndices.map((i) => sexTypeLabels[i]).toList();
 
   void _onSave() {
-    if (_type != WishType.action && _contentController.text.trim().isEmpty) return;
-    if (_type == WishType.action && _sexTypes.isEmpty && _poseIds.isEmpty && _toyIds.isEmpty && _contentController.text.trim().isEmpty) return;
-    Navigator.of(context).pop(_WishDialogResult(
-      type: _type,
-      content: _contentController.text.trim(),
-      isForNearFuture: _isForNearFuture,
-      visibleToPartners: _visibleToPartners,
-      sexTypes: _sexTypes,
-      poseIds: _poseIds.toList(),
-      toyIds: _toyIds.toList(),
-    ));
+    if (_type != WishType.action && _contentController.text.trim().isEmpty)
+      return;
+    if (_type == WishType.action &&
+        _sexTypes.isEmpty &&
+        _poseIds.isEmpty &&
+        _toyIds.isEmpty &&
+        _contentController.text.trim().isEmpty)
+      return;
+    Navigator.of(context).pop(
+      _WishDialogResult(
+        type: _type,
+        content: _contentController.text.trim(),
+        isForNearFuture: _isForNearFuture,
+        visibleToPartners: _visibleToPartners,
+        sexTypes: _sexTypes,
+        poseIds: _poseIds.toList(),
+        toyIds: _toyIds.toList(),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.existing != null;
-    return AlertDialog(
-      title: Text(isEdit ? 'Редактировать желание' : 'Добавить желание'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            DropdownButtonFormField<WishType>(
-              value: _type,
-              decoration: const InputDecoration(labelText: 'Тип'),
-              items: WishType.values
-                  .map((t) => DropdownMenuItem(value: t, child: Text(Wish(type: t, id: '', userId: '', content: '', createdAt: DateTime.now()).typeLabel)))
-                  .toList(),
-              onChanged: (v) => setState(() => _type = v ?? _type),
-            ),
-            const SizedBox(height: 16),
-            if (_type == WishType.action) ...[
-              Text('Тип секса', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: List.generate(sexTypeLabels.length, (i) {
-                  final selected = _sexTypeIndices.contains(i);
-                  return FilterChip(
-                    label: Text(sexTypeLabels[i]),
-                    selected: selected,
-                    onSelected: (_) => _toggleSexType(i),
-                  );
-                }),
+    return Dialog(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 720,
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                isEdit ? 'Редактировать желание' : 'Добавить желание',
+                style: Theme.of(context).textTheme.titleLarge,
               ),
-              const SizedBox(height: 16),
-              Text('Позы', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 6),
-              SizedBox(
-                height: 120,
+              const SizedBox(height: 12),
+              Expanded(
                 child: SingleChildScrollView(
-                  physics: const ClampingScrollPhysics(),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      for (final p in kamasutraPoses)
-                        CheckboxListTile(
-                          title: Text(p.label),
-                          value: _poseIds.contains(p.id),
-                          onChanged: (_) => _togglePose(p.id),
-                          controlAffinity: ListTileControlAffinity.leading,
-                          dense: true,
+                      DropdownButtonFormField<WishType>(
+                        initialValue: _type,
+                        decoration: const InputDecoration(labelText: 'Тип'),
+                        items: WishType.values
+                            .map(
+                              (t) => DropdownMenuItem(
+                                value: t,
+                                child: Text(
+                                  Wish(
+                                    type: t,
+                                    id: '',
+                                    userId: '',
+                                    content: '',
+                                    createdAt: DateTime.now(),
+                                  ).typeLabel,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (v) => setState(() => _type = v ?? _type),
+                      ),
+                      const SizedBox(height: 16),
+                      if (_type == WishType.action) ...[
+                        Text('Тип секса',
+                            style:
+                                Theme.of(context).textTheme.titleSmall),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: List.generate(sexTypeLabels.length, (i) {
+                            final selected = _sexTypeIndices.contains(i);
+                            return FilterChip(
+                              label: Text(sexTypeLabels[i]),
+                              selected: selected,
+                              onSelected: (_) => _toggleSexType(i),
+                            );
+                          }),
                         ),
+                        const SizedBox(height: 16),
+                        Text('Позы',
+                            style:
+                                Theme.of(context).textTheme.titleSmall),
+                        const SizedBox(height: 6),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final w = constraints.maxWidth;
+                            const gap = 8.0;
+                            final itemW = (w - gap) / 2;
+                            final itemH = itemW / 1.45;
+                            return Wrap(
+                              spacing: gap,
+                              runSpacing: gap,
+                              children: kamasutraPoses.map((p) {
+                                final selected = _poseIds.contains(p.id);
+                                return SizedBox(
+                                  width: itemW,
+                                  height: itemH,
+                                  child: Material(
+                                    borderRadius: BorderRadius.circular(12),
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .surfaceContainerHighest
+                                        .withValues(
+                                          alpha: selected ? 0.35 : 0.18,
+                                        ),
+                                    child: InkWell(
+                                      borderRadius:
+                                          BorderRadius.circular(12),
+                                      onTap: () => _togglePose(p.id),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(8),
+                                        child: Column(
+                                          children: [
+                                            Expanded(
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                                child: Container(
+                                                  width: double.infinity,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .surface,
+                                                  alignment: Alignment.center,
+                                                  child: SvgPicture.asset(
+                                                      p.imageAsset),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    p.label,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: Theme.of(context)
+                                                        .textTheme
+                                                        .bodySmall,
+                                                  ),
+                                                ),
+                                                IconButton(
+                                                  iconSize: 18,
+                                                  visualDensity:
+                                                      VisualDensity.compact,
+                                                  onPressed: () =>
+                                                      _showPoseDetails(p),
+                                                  icon: const Icon(
+                                                      Icons.info_outline),
+                                                ),
+                                                Checkbox(
+                                                  value: selected,
+                                                  onChanged: (_) =>
+                                                      _togglePose(p.id),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            );
+                          },
+                        ),
+                        if (_poseIds.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: _poseIds.map((id) {
+                              final pose = _poseById(id);
+                              return InputChip(
+                                label: Text(pose?.label ?? id),
+                                onDeleted: () => _togglePose(id),
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        StreamBuilder<List<UserToy>>(
+                          stream: widget.toysRepo.watchToys(),
+                          builder: (context, snap) {
+                            final toys = snap.data ?? [];
+                            return Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Игрушки',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleSmall,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    TextButton.icon(
+                                      icon: const Icon(Icons.add, size: 18),
+                                      label: const Text('Добавить'),
+                                      onPressed: () =>
+                                          _showAddToyDialog(context, toys),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                if (toys.isEmpty)
+                                  const Text(
+                                    'Список пуст. Нажмите «Добавить».',
+                                    style:
+                                        TextStyle(fontSize: 12, color: Colors.grey),
+                                  )
+                                else
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: toys.map((t) {
+                                      final selected = _toyIds.contains(t.id);
+                                      return FilterChip(
+                                        label: Text(t.name),
+                                        selected: selected,
+                                        onSelected: (_) =>
+                                            _toggleToy(t.id),
+                                      );
+                                    }).toList(),
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _contentController,
+                          decoration: const InputDecoration(
+                            labelText: 'Заметка (необязательно)',
+                            border: OutlineInputBorder(),
+                          ),
+                          maxLines: 2,
+                        ),
+                      ] else ...[
+                        TextField(
+                          controller: _contentController,
+                          decoration: InputDecoration(
+                            labelText: _type == WishType.movie
+                                ? 'Ссылка на фильм'
+                                : 'Вещь',
+                            hintText: _type == WishType.movie
+                                ? 'https://...'
+                                : null,
+                            border: const OutlineInputBorder(),
+                          ),
+                          maxLines: _type == WishType.movie ? 1 : 2,
+                          keyboardType: _type == WishType.movie
+                              ? TextInputType.url
+                              : null,
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      SwitchListTile(
+                        title: const Text('На ближайшее время'),
+                        value: _isForNearFuture,
+                        onChanged: (v) => setState(() => _isForNearFuture = v),
+                      ),
+                      SwitchListTile(
+                        title: const Text('Показывать партнёрам'),
+                        value: _visibleToPartners,
+                        onChanged: (v) =>
+                            setState(() => _visibleToPartners = v),
+                      ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
-              StreamBuilder<List<UserToy>>(
-                stream: widget.toysRepo.watchToys(),
-                builder: (context, snap) {
-                  final toys = snap.data ?? [];
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          Text('Игрушки', style: Theme.of(context).textTheme.titleSmall),
-                          const SizedBox(width: 8),
-                          TextButton.icon(
-                            icon: const Icon(Icons.add, size: 18),
-                            label: const Text('Добавить'),
-                            onPressed: () => _showAddToyDialog(context, toys),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      if (toys.isEmpty)
-                        const Text('Список пуст. Нажмите «Добавить».', style: TextStyle(fontSize: 12, color: Colors.grey))
-                      else
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 4,
-                          children: toys.map((t) {
-                            final selected = _toyIds.contains(t.id);
-                            return FilterChip(
-                              label: Text(t.name),
-                              selected: selected,
-                              onSelected: (_) => _toggleToy(t.id),
-                            );
-                          }).toList(),
-                        ),
-                    ],
-                  );
-                },
-              ),
               const SizedBox(height: 12),
-              TextField(
-                controller: _contentController,
-                decoration: const InputDecoration(
-                  labelText: 'Заметка (необязательно)',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 2,
-              ),
-            ] else ...[
-              TextField(
-                controller: _contentController,
-                decoration: InputDecoration(
-                  labelText: _type == WishType.movie ? 'Ссылка на фильм' : 'Вещь',
-                  hintText: _type == WishType.movie ? 'https://...' : null,
-                  border: const OutlineInputBorder(),
-                ),
-                maxLines: _type == WishType.movie ? 1 : 2,
-                keyboardType: _type == WishType.movie ? TextInputType.url : null,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Отмена'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: _onSave,
+                    child: Text(isEdit ? 'Сохранить' : 'Добавить'),
+                  ),
+                ],
               ),
             ],
-            const SizedBox(height: 16),
-            SwitchListTile(
-              title: const Text('На ближайшее время'),
-              value: _isForNearFuture,
-              onChanged: (v) => setState(() => _isForNearFuture = v),
-            ),
-            SwitchListTile(
-              title: const Text('Показывать партнёрам'),
-              value: _visibleToPartners,
-              onChanged: (v) => setState(() => _visibleToPartners = v),
-            ),
-          ],
+          ),
         ),
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
-        FilledButton(onPressed: _onSave, child: Text(isEdit ? 'Сохранить' : 'Добавить')),
-      ],
     );
   }
 
-  Future<void> _showAddToyDialog(BuildContext context, List<UserToy> toys) async {
+  Future<void> _showAddToyDialog(
+    BuildContext context,
+    List<UserToy> toys,
+  ) async {
     final nameController = TextEditingController();
     final added = await showDialog<bool>(
       context: context,
@@ -480,11 +783,17 @@ class _AddOrEditWishDialogState extends State<_AddOrEditWishDialog> {
         title: const Text('Новая игрушка'),
         content: TextField(
           controller: nameController,
-          decoration: const InputDecoration(labelText: 'Название', border: OutlineInputBorder()),
+          decoration: const InputDecoration(
+            labelText: 'Название',
+            border: OutlineInputBorder(),
+          ),
           autofocus: true,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Отмена')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Отмена'),
+          ),
           FilledButton(
             onPressed: () async {
               final name = nameController.text.trim();
@@ -502,7 +811,10 @@ class _AddOrEditWishDialogState extends State<_AddOrEditWishDialog> {
 }
 
 class _PartnersWishesTab extends StatelessWidget {
-  const _PartnersWishesTab({required this.partnersRepo, required this.wishesRepo});
+  const _PartnersWishesTab({
+    required this.partnersRepo,
+    required this.wishesRepo,
+  });
   final PartnersRepository partnersRepo;
   final WishesRepository wishesRepo;
 
@@ -511,11 +823,16 @@ class _PartnersWishesTab extends StatelessWidget {
     return StreamBuilder<List<PartnerConnection>>(
       stream: partnersRepo.watchAcceptedPartners(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData)
+          return const Center(child: CircularProgressIndicator());
         final partners = snapshot.data!;
         final myId = partnersRepo.currentUserId;
         if (myId == null || partners.isEmpty) {
-          return const Center(child: Text('Нет партнёров. Добавьте партнёра во вкладке «Партнёры».'));
+          return const Center(
+            child: Text(
+              'Нет партнёров. Добавьте партнёра во вкладке «Партнёры».',
+            ),
+          );
         }
         return ListView.builder(
           padding: const EdgeInsets.all(16),
@@ -580,10 +897,13 @@ class _PartnerNearFutureWishesPage extends StatelessWidget {
               ),
             );
           }
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          if (!snapshot.hasData)
+            return const Center(child: CircularProgressIndicator());
           final list = snapshot.data!;
           if (list.isEmpty) {
-            return const Center(child: Text('Нет пожеланий на ближайшее время'));
+            return const Center(
+              child: Text('Нет пожеланий на ближайшее время'),
+            );
           }
           return ListView.builder(
             padding: const EdgeInsets.all(16),
@@ -594,10 +914,18 @@ class _PartnerNearFutureWishesPage extends StatelessWidget {
                 margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
                   leading: Icon(
-                    w.type == WishType.movie ? Icons.movie : (w.type == WishType.thing ? Icons.card_giftcard : Icons.star),
+                    w.type == WishType.movie
+                        ? Icons.movie
+                        : (w.type == WishType.thing
+                              ? Icons.card_giftcard
+                              : Icons.star),
                     color: Theme.of(context).colorScheme.primary,
                   ),
-                  title: Text(_wishTileTitle(w), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  title: Text(
+                    _wishTileTitle(w),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   subtitle: Text(w.typeLabel),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => _showPartnerWishDetail(context, partnerName, w),
@@ -619,7 +947,9 @@ void _showPartnerWishDetail(BuildContext context, String partnerName, Wish w) {
       title: Row(
         children: [
           Icon(
-            w.type == WishType.movie ? Icons.movie : (w.type == WishType.thing ? Icons.card_giftcard : Icons.star),
+            w.type == WishType.movie
+                ? Icons.movie
+                : (w.type == WishType.thing ? Icons.card_giftcard : Icons.star),
             color: theme.colorScheme.primary,
           ),
           const SizedBox(width: 8),
@@ -638,7 +968,12 @@ void _showPartnerWishDetail(BuildContext context, String partnerName, Wish w) {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Тип', style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
+                    Text(
+                      'Тип',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     Text(w.typeLabel, style: theme.textTheme.bodyLarge),
                     if (w.isForNearFuture) ...[
@@ -653,7 +988,10 @@ void _showPartnerWishDetail(BuildContext context, String partnerName, Wish w) {
                 ),
               ),
             ),
-            if (w.type == WishType.action && (w.sexTypes.isNotEmpty || w.poseIds.isNotEmpty || w.toyIds.isNotEmpty)) ...[
+            if (w.type == WishType.action &&
+                (w.sexTypes.isNotEmpty ||
+                    w.poseIds.isNotEmpty ||
+                    w.toyIds.isNotEmpty)) ...[
               if (w.sexTypes.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Card(
@@ -663,12 +1001,25 @@ void _showPartnerWishDetail(BuildContext context, String partnerName, Wish w) {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Тип секса', style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
+                        Text(
+                          'Тип секса',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
                         const SizedBox(height: 6),
                         Wrap(
                           spacing: 6,
                           runSpacing: 4,
-                          children: w.sexTypes.map((t) => Chip(label: Text(t), materialTapTargetSize: MaterialTapTargetSize.shrinkWrap)).toList(),
+                          children: w.sexTypes
+                              .map(
+                                (t) => Chip(
+                                  label: Text(t),
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                              )
+                              .toList(),
                         ),
                       ],
                     ),
@@ -684,16 +1035,25 @@ void _showPartnerWishDetail(BuildContext context, String partnerName, Wish w) {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Позы', style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
+                        Text(
+                          'Позы',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
                         const SizedBox(height: 4),
                         Text(
-                          w.poseIds.map((id) {
-                            try {
-                              return kamasutraPoses.firstWhere((p) => p.id == id).label;
-                            } catch (_) {
-                              return id;
-                            }
-                          }).join(', '),
+                          w.poseIds
+                              .map((id) {
+                                try {
+                                  return kamasutraPoses
+                                      .firstWhere((p) => p.id == id)
+                                      .label;
+                                } catch (_) {
+                                  return id;
+                                }
+                              })
+                              .join(', '),
                           style: theme.textTheme.bodyMedium,
                         ),
                       ],
@@ -710,9 +1070,17 @@ void _showPartnerWishDetail(BuildContext context, String partnerName, Wish w) {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Игрушки', style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
+                        Text(
+                          'Игрушки',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
                         const SizedBox(height: 4),
-                        Text('Выбрано: ${w.toyIds.length}', style: theme.textTheme.bodyMedium),
+                        Text(
+                          'Выбрано: ${w.toyIds.length}',
+                          style: theme.textTheme.bodyMedium,
+                        ),
                       ],
                     ),
                   ),
@@ -729,11 +1097,20 @@ void _showPartnerWishDetail(BuildContext context, String partnerName, Wish w) {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        w.type == WishType.movie ? 'Ссылка на фильм' : (w.type == WishType.action ? 'Заметка' : 'Описание'),
-                        style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary),
+                        w.type == WishType.movie
+                            ? 'Ссылка на фильм'
+                            : (w.type == WishType.action
+                                  ? 'Заметка'
+                                  : 'Описание'),
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                        ),
                       ),
                       const SizedBox(height: 4),
-                      SelectableText(w.content, style: theme.textTheme.bodyMedium),
+                      SelectableText(
+                        w.content,
+                        style: theme.textTheme.bodyMedium,
+                      ),
                     ],
                   ),
                 ),
@@ -747,7 +1124,12 @@ void _showPartnerWishDetail(BuildContext context, String partnerName, Wish w) {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Добавлено', style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
+                    Text(
+                      'Добавлено',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       '${w.createdAt.day}.${w.createdAt.month}.${w.createdAt.year}',
@@ -771,7 +1153,10 @@ void _showPartnerWishDetail(BuildContext context, String partnerName, Wish w) {
 }
 
 class _WishRequestsTab extends StatelessWidget {
-  const _WishRequestsTab({required this.partnersRepo, required this.wishesRepo});
+  const _WishRequestsTab({
+    required this.partnersRepo,
+    required this.wishesRepo,
+  });
   final PartnersRepository partnersRepo;
   final WishesRepository wishesRepo;
 
@@ -780,7 +1165,10 @@ class _WishRequestsTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text('Запросить пожелания у партнёра', style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text(
+          'Запросить пожелания у партнёра',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 8),
         StreamBuilder<List<PartnerConnection>>(
           stream: partnersRepo.watchAcceptedPartners(),
@@ -788,7 +1176,8 @@ class _WishRequestsTab extends StatelessWidget {
             if (!snapshot.hasData) return const SizedBox.shrink();
             final partners = snapshot.data!;
             final myId = partnersRepo.currentUserId;
-            if (myId == null || partners.isEmpty) return const Text('Нет партнёров');
+            if (myId == null || partners.isEmpty)
+              return const Text('Нет партнёров');
             return Column(
               children: partners.map((conn) {
                 final partnerId = conn.partnerUserId(myId);
@@ -800,10 +1189,18 @@ class _WishRequestsTab extends StatelessWidget {
                       title: Text(name),
                       trailing: FilledButton(
                         onPressed: () async {
-                          final id = await wishesRepo.sendWishRequest(partnerId);
+                          final id = await wishesRepo.sendWishRequest(
+                            partnerId,
+                          );
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              id != null ? const SnackBar(content: Text('Запрос отправлен')) : const SnackBar(content: Text('Запрос уже отправлен')),
+                              id != null
+                                  ? const SnackBar(
+                                      content: Text('Запрос отправлен'),
+                                    )
+                                  : const SnackBar(
+                                      content: Text('Запрос уже отправлен'),
+                                    ),
                             );
                           }
                         },
@@ -817,30 +1214,54 @@ class _WishRequestsTab extends StatelessWidget {
           },
         ),
         const SizedBox(height: 24),
-        const Text('Входящие запросы', style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text(
+          'Входящие запросы',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 8),
         StreamBuilder<List<WishRequest>>(
           stream: wishesRepo.watchIncomingWishRequests(),
           builder: (context, snapshot) {
-            if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+            if (!snapshot.hasData)
+              return const Center(child: CircularProgressIndicator());
             final list = snapshot.data!;
             if (list.isEmpty) return const Text('Нет входящих запросов');
             return Column(
-              children: list.map((req) => _IncomingRequestTile(request: req, partnersRepo: partnersRepo, wishesRepo: wishesRepo)).toList(),
+              children: list
+                  .map(
+                    (req) => _IncomingRequestTile(
+                      request: req,
+                      partnersRepo: partnersRepo,
+                      wishesRepo: wishesRepo,
+                    ),
+                  )
+                  .toList(),
             );
           },
         ),
         const SizedBox(height: 24),
-        const Text('Мои запросы', style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text(
+          'Мои запросы',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 8),
         StreamBuilder<List<WishRequest>>(
           stream: wishesRepo.watchOutgoingWishRequests(),
           builder: (context, snapshot) {
-            if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+            if (!snapshot.hasData)
+              return const Center(child: CircularProgressIndicator());
             final list = snapshot.data!;
             if (list.isEmpty) return const Text('Нет отправленных запросов');
             return Column(
-              children: list.map((req) => _OutgoingRequestTile(request: req, partnersRepo: partnersRepo, wishesRepo: wishesRepo)).toList(),
+              children: list
+                  .map(
+                    (req) => _OutgoingRequestTile(
+                      request: req,
+                      partnersRepo: partnersRepo,
+                      wishesRepo: wishesRepo,
+                    ),
+                  )
+                  .toList(),
             );
           },
         ),
@@ -850,7 +1271,11 @@ class _WishRequestsTab extends StatelessWidget {
 }
 
 class _IncomingRequestTile extends StatelessWidget {
-  const _IncomingRequestTile({required this.request, required this.partnersRepo, required this.wishesRepo});
+  const _IncomingRequestTile({
+    required this.request,
+    required this.partnersRepo,
+    required this.wishesRepo,
+  });
   final WishRequest request;
   final PartnersRepository partnersRepo;
   final WishesRepository wishesRepo;
@@ -874,7 +1299,11 @@ class _IncomingRequestTile extends StatelessWidget {
                       await wishesRepo.markWishRequestAnswered(request.id);
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Запрос отмечен как отвеченный. Отметьте желания «на ближайшее время» во вкладке «Мой список».')),
+                          const SnackBar(
+                            content: Text(
+                              'Запрос отмечен как отвеченный. Отметьте желания «на ближайшее время» во вкладке «Мой список».',
+                            ),
+                          ),
                         );
                       }
                     },
@@ -889,7 +1318,11 @@ class _IncomingRequestTile extends StatelessWidget {
 }
 
 class _OutgoingRequestTile extends StatelessWidget {
-  const _OutgoingRequestTile({required this.request, required this.partnersRepo, required this.wishesRepo});
+  const _OutgoingRequestTile({
+    required this.request,
+    required this.partnersRepo,
+    required this.wishesRepo,
+  });
   final WishRequest request;
   final PartnersRepository partnersRepo;
   final WishesRepository wishesRepo;

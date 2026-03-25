@@ -36,6 +36,7 @@ class _MainShellState extends State<MainShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
+        height: 72,
         destinations: _tabs
             .map((t) => NavigationDestination(
                   icon: Icon(t.icon),

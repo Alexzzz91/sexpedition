@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sexpedition_application_1/services/partners_repository.dart';
 
@@ -48,6 +49,29 @@ class _AuthScreenState extends State<AuthScreen> {
         setState(() {
           _isLoading = false;
           _errorMessage = e.message ?? 'Ошибка авторизации';
+        });
+      }
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    // Google sign-in via popup is supported on Flutter web.
+    if (!kIsWeb) return;
+
+    setState(() {
+      _errorMessage = null;
+      _isLoading = true;
+    });
+
+    try {
+      await FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider());
+      await PartnersRepository().ensureMyProfile();
+      if (mounted) setState(() => _isLoading = false);
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = e.message ?? 'Ошибка авторизации через Google';
         });
       }
     }
@@ -128,6 +152,14 @@ class _AuthScreenState extends State<AuthScreen> {
                           )
                         : Text(_isLogin ? 'Войти' : 'Зарегистрироваться'),
                   ),
+                  if (kIsWeb) ...[
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: _isLoading ? null : _signInWithGoogle,
+                      icon: const Icon(Icons.login),
+                      label: Text(_isLogin ? 'Войти через Google' : 'Зарегистрироваться через Google'),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   TextButton(
                     onPressed: _isLoading

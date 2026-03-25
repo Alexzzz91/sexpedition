@@ -60,31 +60,62 @@ class _PartnersScreenState extends State<PartnersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Партнёры')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Text('Добавить по email', style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(
-                    hintText: 'Email партнёра',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                ),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: LinearGradient(
+                colors: [
+                  theme.colorScheme.primary.withValues(alpha: 0.20),
+                  theme.colorScheme.surface,
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              const SizedBox(width: 8),
-              FilledButton(onPressed: _addByEmail, child: const Text('Добавить')),
-            ],
+              border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.25)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Добавить по email', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 4),
+                Text(
+                  'Пригласите партнёра в приватное пространство.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _emailController,
+                        decoration: const InputDecoration(
+                          hintText: 'Email партнёра',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(onPressed: _addByEmail, child: const Text('Добавить')),
+                  ],
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 24),
-          const Text('Входящие запросы', style: TextStyle(fontWeight: FontWeight.bold)),
+          _SectionTitle(
+            icon: Icons.mark_email_unread_rounded,
+            title: 'Входящие запросы',
+          ),
           const SizedBox(height: 8),
           StreamBuilder<List<PartnerConnection>>(
             stream: _repo.watchIncomingRequests(),
@@ -109,7 +140,10 @@ class _PartnersScreenState extends State<PartnersScreen> {
             },
           ),
           const SizedBox(height: 24),
-          const Text('Мои партнёры', style: TextStyle(fontWeight: FontWeight.bold)),
+          _SectionTitle(
+            icon: Icons.favorite_rounded,
+            title: 'Мои партнёры',
+          ),
           const SizedBox(height: 8),
           StreamBuilder<List<PartnerConnection>>(
             stream: _repo.watchAcceptedPartners(),
@@ -150,21 +184,25 @@ class _IncomingRequestTile extends StatelessWidget {
       future: repo.getProfile(connection.fromUserId),
       builder: (context, snap) {
         final name = snap.data?.displayLabel ?? connection.fromUserId;
-        return ListTile(
-          title: Text(name),
-          subtitle: const Text('Хочет добавить вас в партнёры'),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.check),
-                onPressed: () => repo.acceptConnection(connection.id),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => repo.rejectConnection(connection.id),
-              ),
-            ],
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            leading: const CircleAvatar(child: Icon(Icons.person_add_alt_1)),
+            title: Text(name),
+            subtitle: const Text('Хочет добавить вас в партнёры'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.check),
+                  onPressed: () => repo.acceptConnection(connection.id),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => repo.rejectConnection(connection.id),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -186,26 +224,52 @@ class _PartnerTile extends StatelessWidget {
       future: repo.getProfile(partnerId),
       builder: (context, snap) {
         final name = snap.data?.displayLabel ?? partnerId;
-        return ListTile(
-          title: Text(name),
-          trailing: IconButton(
-            icon: const Icon(Icons.remove_circle_outline),
-            onPressed: () async {
-              final ok = await showDialog<bool>(
-                context: context,
-                builder: (c) => AlertDialog(
-                  title: const Text('Удалить партнёра?'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.of(c).pop(false), child: const Text('Нет')),
-                    FilledButton(onPressed: () => Navigator.of(c).pop(true), child: const Text('Да')),
-                  ],
-                ),
-              );
-              if (ok == true) await repo.removePartner(connection.id);
-            },
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.18),
+              child: Icon(Icons.favorite, color: Theme.of(context).colorScheme.primary),
+            ),
+            title: Text(name),
+            subtitle: const Text('Подключён'),
+            trailing: IconButton(
+              icon: const Icon(Icons.remove_circle_outline),
+              onPressed: () async {
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (c) => AlertDialog(
+                    title: const Text('Удалить партнёра?'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.of(c).pop(false), child: const Text('Нет')),
+                      FilledButton(onPressed: () => Navigator.of(c).pop(true), child: const Text('Да')),
+                    ],
+                  ),
+                );
+                if (ok == true) await repo.removePartner(connection.id);
+              },
+            ),
           ),
         );
       },
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.icon, required this.title});
+
+  final IconData icon;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 8),
+        Text(title, style: Theme.of(context).textTheme.titleMedium),
+      ],
     );
   }
 }

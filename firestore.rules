@@ -47,5 +47,29 @@ service cloud.firestore {
       allow update: if isSignedIn() && isOwner(resource.data.toUserId);
       allow delete: if false;
     }
+
+    match /user_device_tokens/{tokenId} {
+      allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+    }
+
+    match /wish_notifications/{notificationId} {
+      allow read: if isSignedIn() &&
+        (isOwner(resource.data.fromUserId) || isOwner(resource.data.toUserId));
+      allow create: if false;
+      allow update: if isSignedIn() && isOwner(resource.data.toUserId);
+      allow delete: if false;
+
+      match /comments/{commentId} {
+        allow read: if isSignedIn() &&
+          (isOwner(get(/databases/$(database)/documents/wish_notifications/$(notificationId)).data.fromUserId) ||
+           isOwner(get(/databases/$(database)/documents/wish_notifications/$(notificationId)).data.toUserId));
+        allow create: if isSignedIn() &&
+          isOwner(request.resource.data.authorUserId) &&
+          (isOwner(get(/databases/$(database)/documents/wish_notifications/$(notificationId)).data.fromUserId) ||
+           isOwner(get(/databases/$(database)/documents/wish_notifications/$(notificationId)).data.toUserId));
+        allow update, delete: if false;
+      }
+    }
   }
 }

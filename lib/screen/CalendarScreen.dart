@@ -28,8 +28,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   String _eventTitle(CalendarEvent e) {
     if (e.isSexRecord) {
-      if (e.sexTypes.isNotEmpty)
+      if (e.sexTypes.isNotEmpty) {
         return 'Запись о сексе: ${e.sexTypes.join(", ")}';
+      }
       return 'Запись о сексе';
     }
     if (e.isWishToday) {
@@ -58,7 +59,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
     if (sub != null) parts.add(sub);
     if (_isPartnerEvent(e)) {
       return FutureBuilder<String>(
-        future: _partnersRepo.getProfile(e.userId).then((p) => p?.displayLabel ?? 'Партнёр'),
+        future: _partnersRepo
+            .getProfile(e.userId)
+            .then((p) => p?.displayLabel ?? 'Партнёр'),
         builder: (context, snap) {
           final from = snap.hasData ? 'от ${snap.data}' : 'от партнёра';
           return Text(
@@ -70,7 +73,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
       );
     }
     if (parts.isEmpty) return null;
-    return Text(parts.join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis);
+    return Text(
+      parts.join(' · '),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
   }
 
   /// Маркер на ячейке календаря: цвет и количество (1–3 точки).
@@ -78,12 +85,28 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final n = count.clamp(1, 3);
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: List.generate(n, (_) => Container(
-        margin: const EdgeInsets.symmetric(horizontal: 1),
-        width: 5,
-        height: 5,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-      )),
+      children: List.generate(
+        n,
+        (_) => Container(
+          margin: const EdgeInsets.symmetric(horizontal: 1),
+          width: 5,
+          height: 5,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSexHeartMarker(Color color) {
+    return Container(
+      width: 16,
+      height: 16,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Icon(Icons.favorite, size: 11, color: color),
     );
   }
 
@@ -123,7 +146,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Период', style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
+                        Text(
+                          'Период',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
                         const SizedBox(height: 4),
                         Text(
                           '${day.day}.${day.month}.${day.year} — ${endDate.day}.${endDate.month}.${endDate.year}',
@@ -142,12 +170,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Тип секса', style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
+                          Text(
+                            'Тип секса',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
                           const SizedBox(height: 6),
                           Wrap(
                             spacing: 6,
                             runSpacing: 4,
-                            children: e.sexTypes.map((t) => Chip(label: Text(t), materialTapTargetSize: MaterialTapTargetSize.shrinkWrap)).toList(),
+                            children: e.sexTypes
+                                .map(
+                                  (t) => Chip(
+                                    label: Text(t),
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                )
+                                .toList(),
                           ),
                         ],
                       ),
@@ -163,9 +204,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Ссылка', style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
+                          Text(
+                            'Ссылка',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
                           const SizedBox(height: 4),
-                          SelectableText(e.contentLink!, style: theme.textTheme.bodyMedium),
+                          SelectableText(
+                            e.contentLink!,
+                            style: theme.textTheme.bodyMedium,
+                          ),
                         ],
                       ),
                     ),
@@ -180,9 +229,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Текст', style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
+                          Text(
+                            'Текст',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
                           const SizedBox(height: 4),
-                          SelectableText(e.contentText!, style: theme.textTheme.bodyMedium),
+                          SelectableText(
+                            e.contentText!,
+                            style: theme.textTheme.bodyMedium,
+                          ),
                         ],
                       ),
                     ),
@@ -198,9 +255,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       children: [
                         Padding(
                           padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-                          child: Text('Фото', style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
+                          child: Text(
+                            'Фото',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
                         ),
-                        Image.network(e.imageUrl!, height: 180, width: double.infinity, fit: BoxFit.cover),
+                        Image.network(
+                          e.imageUrl!,
+                          height: 180,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
                       ],
                     ),
                   ),
@@ -229,7 +296,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
     if (!mounted) return;
     if (action == _partnerWishSexRecord) {
-      _showEventDialog(day, prefillFromWish: e, dayEvents: _eventsMap[CalendarEvent.toDateOnly(day)] ?? []);
+      _showEventDialog(
+        day,
+        prefillFromWish: e,
+        dayEvents: _eventsMap[CalendarEvent.toDateOnly(day)] ?? [],
+      );
     } else if (action == _partnerWishAddMyWish) {
       final complementLabel = fromLabel;
       _showEventDialog(
@@ -244,7 +315,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Календарь 1')),
+      appBar: AppBar(title: const Text('Календарь')),
       body: StreamBuilder<List<CalendarEvent>>(
         stream: _eventsRepo.watchCalendarEventsWithPartners(_partnersRepo),
         builder: (context, snapshot) {
@@ -280,7 +351,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     if (_isPartnerEvent(ev)) {
                       _showPartnerWishView(selectedDay, ev);
                     } else {
-                      _showEventDialog(selectedDay, existing: ev, dayEvents: dayEvents);
+                      _showEventDialog(
+                        selectedDay,
+                        existing: ev,
+                        dayEvents: dayEvents,
+                      );
                     }
                   } else if (dayEvents.isNotEmpty) {
                     _showDayEventsChoice(selectedDay, dayEvents);
@@ -298,8 +373,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   markerBuilder: (context, day, events) {
                     if (events.isEmpty) return null;
                     final myId = _partnersRepo.currentUserId;
-                    final myEvents = events.where((e) => e.userId == myId).toList();
-                    final partnerWishes = events.where((e) => e.isWishToday && e.userId != myId).toList();
+                    final myEvents = events
+                        .where((e) => e.userId == myId)
+                        .toList();
+                    final partnerWishes = events
+                        .where((e) => e.isWishToday && e.userId != myId)
+                        .toList();
+                    final hasSexRecord = events.any((e) => e.isSexRecord);
                     final theme = Theme.of(context);
                     return Padding(
                       padding: const EdgeInsets.only(top: 2),
@@ -307,11 +387,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         mainAxisSize: MainAxisSize.min,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
+                          if (hasSexRecord) ...[
+                            _buildSexHeartMarker(theme.colorScheme.primary),
+                            if (myEvents.isNotEmpty || partnerWishes.isNotEmpty)
+                              const SizedBox(width: 4),
+                          ],
                           if (myEvents.isNotEmpty)
-                            _buildMarkerDot(theme.colorScheme.primary, myEvents.length),
-                          if (myEvents.isNotEmpty && partnerWishes.isNotEmpty) const SizedBox(width: 4),
+                            _buildMarkerDot(
+                              theme.colorScheme.primary,
+                              myEvents.length,
+                            ),
+                          if (myEvents.isNotEmpty && partnerWishes.isNotEmpty)
+                            const SizedBox(width: 4),
                           if (partnerWishes.isNotEmpty)
-                            _buildMarkerDot(theme.colorScheme.secondary, partnerWishes.length),
+                            _buildMarkerDot(
+                              theme.colorScheme.secondary,
+                              partnerWishes.length,
+                            ),
                         ],
                       ),
                     );
@@ -320,25 +412,54 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ),
               // Легенда: свои события / пожелания партнёра
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _buildMarkerDot(Theme.of(context).colorScheme.primary, 1),
+                        _buildSexHeartMarker(
+                          Theme.of(context).colorScheme.primary,
+                        ),
                         const SizedBox(width: 6),
-                        Text('мои', style: Theme.of(context).textTheme.bodySmall),
+                        Text(
+                          'секс',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                       ],
                     ),
                     const SizedBox(width: 16),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _buildMarkerDot(Theme.of(context).colorScheme.secondary, 1),
+                        _buildMarkerDot(
+                          Theme.of(context).colorScheme.primary,
+                          1,
+                        ),
                         const SizedBox(width: 6),
-                        Text('пожелания партнёра', style: Theme.of(context).textTheme.bodySmall),
+                        Text(
+                          'мои',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 16),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildMarkerDot(
+                          Theme.of(context).colorScheme.secondary,
+                          1,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'пожелания партнёра',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                       ],
                     ),
                   ],
@@ -371,34 +492,36 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     ),
                   )
                 else
-                  ...selectedDayEvents.map(
-                    (e) {
-                      final isPartner = _isPartnerEvent(e);
-                      final color = isPartner
-                          ? Theme.of(context).colorScheme.secondary
-                          : Theme.of(context).colorScheme.primary;
-                      return ListTile(
-                        leading: Icon(
-                          e.isSexRecord
-                              ? Icons.favorite
-                              : (e.isWishToday
-                                    ? Icons.card_giftcard
-                                    : Icons.event_note),
-                          color: color,
-                        ),
-                        title: Text(_eventTitle(e)),
-                        subtitle: _buildEventSubtitle(e),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () {
-                          if (isPartner) {
-                            _showPartnerWishView(_selectedDay!, e);
-                          } else {
-                            _showEventDialog(_selectedDay!, existing: e, dayEvents: selectedDayEvents);
-                          }
-                        },
-                      );
-                    },
-                  ),
+                  ...selectedDayEvents.map((e) {
+                    final isPartner = _isPartnerEvent(e);
+                    final color = isPartner
+                        ? Theme.of(context).colorScheme.secondary
+                        : Theme.of(context).colorScheme.primary;
+                    return ListTile(
+                      leading: Icon(
+                        e.isSexRecord
+                            ? Icons.favorite
+                            : (e.isWishToday
+                                  ? Icons.card_giftcard
+                                  : Icons.event_note),
+                        color: color,
+                      ),
+                      title: Text(_eventTitle(e)),
+                      subtitle: _buildEventSubtitle(e),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        if (isPartner) {
+                          _showPartnerWishView(_selectedDay!, e);
+                        } else {
+                          _showEventDialog(
+                            _selectedDay!,
+                            existing: e,
+                            dayEvents: selectedDayEvents,
+                          );
+                        }
+                      },
+                    );
+                  }),
               ],
             ],
           );
@@ -420,7 +543,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return list;
   }
 
-  Future<void> _showEventDialog(DateTime day, {
+  Future<void> _showEventDialog(
+    DateTime day, {
     CalendarEvent? existing,
     CalendarEvent? prefillFromWish,
     List<CalendarEvent>? dayEvents,
@@ -432,7 +556,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
     if (!mounted) return;
 
     final myId = _partnersRepo.currentUserId;
-    final partnerWishesForDay = (dayEvents ?? []).where((ev) => ev.isWishToday && myId != null && ev.userId != myId).toList();
+    final partnerWishesForDay = (dayEvents ?? [])
+        .where((ev) => ev.isWishToday && myId != null && ev.userId != myId)
+        .toList();
 
     final result = await showDialog<AddEventDialogResult>(
       context: context,
@@ -467,8 +593,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ],
         ),
       );
-      if (confirm == true && mounted)
+      if (confirm == true && mounted) {
         await _eventsRepo.deleteEvent(existing.id);
+      }
       return;
     }
     if (!mounted) return;
