@@ -103,14 +103,30 @@ class PartnersRepository {
       }
       controller.add(merged);
     }
-    fromStream.listen((s) {
-      fromList = s.docs.map((d) => PartnerConnection.fromFirestore(d)).toList();
-      emit();
-    });
-    toStream.listen((s) {
-      toList = s.docs.map((d) => PartnerConnection.fromFirestore(d)).toList();
-      emit();
-    });
+    final fromSub = fromStream.listen(
+      (s) {
+        fromList = s.docs.map((d) => PartnerConnection.fromFirestore(d)).toList();
+        emit();
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        fromList = [];
+        emit();
+      },
+    );
+    final toSub = toStream.listen(
+      (s) {
+        toList = s.docs.map((d) => PartnerConnection.fromFirestore(d)).toList();
+        emit();
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        toList = [];
+        emit();
+      },
+    );
+    controller.onCancel = () async {
+      await fromSub.cancel();
+      await toSub.cancel();
+    };
     return controller.stream;
   }
 

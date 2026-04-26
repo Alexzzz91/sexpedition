@@ -23,14 +23,22 @@ class PushNotificationsService {
     _initialized = true;
 
     await _initLocalNotifications();
-    await _messaging.requestPermission(alert: true, badge: true, sound: true);
 
-    final token = await _messaging.getToken();
-    if (token != null) {
-      await _saveToken(token);
+    try {
+      await _messaging.requestPermission(alert: true, badge: true, sound: true);
+
+      final token = await _messaging.getToken();
+      if (token != null) {
+        await _saveToken(token);
+      }
+
+      _tokenRefreshSub = _messaging.onTokenRefresh.listen(
+        _saveToken,
+        onError: (Object error, StackTrace stackTrace) {},
+      );
+    } catch (_) {
+      // Push availability must not block the authenticated app shell.
     }
-
-    _tokenRefreshSub = _messaging.onTokenRefresh.listen(_saveToken);
 
     FirebaseMessaging.onMessage.listen((message) async {
       final notification = message.notification;

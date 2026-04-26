@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:sexpedition_application_1/l10n/app_localizations.dart';
+import 'package:sexpedition_application_1/screen/KinkQuizScreen.dart';
+import 'package:sexpedition_application_1/services/locale_controller.dart';
 import 'package:sexpedition_application_1/services/partners_repository.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -51,8 +54,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Профиль')),
+      appBar: AppBar(title: Text(l.profileTitle)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -68,19 +72,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.25)),
+              border: Border.all(
+                color: theme.colorScheme.primary.withValues(alpha: 0.25),
+              ),
             ),
             child: Row(
               children: [
                 CircleAvatar(
                   radius: 28,
-                  backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.25),
+                  backgroundColor: theme.colorScheme.primary.withValues(
+                    alpha: 0.25,
+                  ),
                   child: Icon(Icons.favorite, color: theme.colorScheme.primary),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    user?.displayName?.isNotEmpty == true ? user!.displayName! : 'Ваш приватный профиль',
+                    user?.displayName?.isNotEmpty == true
+                        ? user!.displayName!
+                        : 'Ваш приватный профиль',
                     style: theme.textTheme.titleMedium,
                   ),
                 ),
@@ -101,7 +111,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: ListTile(
                 leading: const Icon(Icons.person),
                 title: const Text('Имя'),
-                subtitle: Text(user.displayName?.isNotEmpty == true ? user.displayName! : '—'),
+                subtitle: Text(
+                  user.displayName?.isNotEmpty == true
+                      ? user.displayName!
+                      : '—',
+                ),
                 trailing: IconButton(
                   icon: const Icon(Icons.edit),
                   onPressed: () => _editName(context),
@@ -110,6 +124,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
           const SizedBox(height: 24),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.language),
+              title: Text(l.language),
+              subtitle: Text(
+                LocaleController.instance.locale == null
+                    ? l.languageSystem
+                    : supportedAppLanguageNames[LocaleController
+                              .instance
+                              .locale!
+                              .languageCode] ??
+                          LocaleController.instance.locale!.languageCode,
+              ),
+              onTap: () => _showLanguageSheet(context),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.psychology_alt_outlined),
+              title: Text(l.kinkQuizTitle),
+              subtitle: Text(l.kinkQuizSubtitle),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const KinkQuizScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
           Card(
             child: ListTile(
               leading: const Icon(Icons.gavel_outlined),
@@ -146,5 +193,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _showLanguageSheet(BuildContext context) async {
+    final l = AppLocalizations.of(context);
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (context) {
+        final selectedCode = LocaleController.instance.locale?.languageCode;
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              ListTile(
+                title: Text(l.languageSystem),
+                leading: Icon(
+                  selectedCode == null
+                      ? Icons.check_circle
+                      : Icons.circle_outlined,
+                ),
+                onTap: () async {
+                  await LocaleController.instance.setLocale(null);
+                  if (context.mounted) Navigator.of(context).pop();
+                },
+              ),
+              for (final locale in supportedAppLocales)
+                ListTile(
+                  title: Text(
+                    supportedAppLanguageNames[locale.languageCode] ??
+                        locale.languageCode,
+                  ),
+                  leading: Icon(
+                    selectedCode == locale.languageCode
+                        ? Icons.check_circle
+                        : Icons.circle_outlined,
+                  ),
+                  onTap: () async {
+                    await LocaleController.instance.setLocale(locale);
+                    if (context.mounted) Navigator.of(context).pop();
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
+    if (mounted) setState(() {});
   }
 }

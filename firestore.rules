@@ -49,6 +49,15 @@ service cloud.firestore {
       allow update, delete: if isSignedIn() && isOwner(resource.data.userId);
     }
 
+    match /kink_quiz_results/{resultId} {
+      allow read: if isSignedIn() &&
+        (isOwner(resource.data.userId) ||
+         (resource.data.visibleToPartners == true &&
+          request.auth.uid in resource.data.participants));
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+      allow update, delete: if isSignedIn() && isOwner(resource.data.userId);
+    }
+
     match /wish_requests/{requestId} {
       allow read: if isSignedIn() &&
         (isOwner(resource.data.fromUserId) || isOwner(resource.data.toUserId));

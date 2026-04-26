@@ -49,10 +49,16 @@ class EventsRepository {
       controller.add([...myEvents, ...partnerWishes]);
     }
 
-    final mySub = watchEvents().listen((list) {
-      myEvents = list;
-      emit();
-    });
+    final mySub = watchEvents().listen(
+      (list) {
+        myEvents = list;
+        emit();
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        myEvents = [];
+        emit();
+      },
+    );
 
     final partnersSub = partnerIdsStream.listen((partnerIds) {
       for (final sub in partnerSubscriptions.values) {
@@ -62,12 +68,19 @@ class EventsRepository {
       partnerEvents.clear();
 
       for (final partnerId in partnerIds) {
-        partnerSubscriptions[partnerId] = watchEventsByUser(partnerId).listen((list) {
-          partnerEvents[partnerId] = list;
-          emit();
-        });
+        partnerSubscriptions[partnerId] = watchEventsByUser(partnerId).listen(
+          (list) {
+            partnerEvents[partnerId] = list;
+            emit();
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            partnerEvents[partnerId] = [];
+            emit();
+          },
+        );
       }
       emit();
+    }, onError: (Object error, StackTrace stackTrace) {
     });
 
     controller.onCancel = () {
