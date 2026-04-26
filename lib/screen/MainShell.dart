@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sexpedition_application_1/screen/CalendarScreen.dart';
+import 'package:sexpedition_application_1/screen/GameScreen.dart';
 import 'package:sexpedition_application_1/screen/PartnersScreen.dart';
 import 'package:sexpedition_application_1/screen/ProfileScreen.dart';
 import 'package:sexpedition_application_1/screen/WishesScreen.dart';
@@ -43,6 +44,17 @@ class _MainShellState extends State<MainShell> {
                   label: t.label,
                 ))
             .toList(),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const GameScreen(),
+            ),
+          );
+        },
+        icon: const Icon(Icons.casino),
+        label: const Text('Игры'),
       ),
     );
   }
