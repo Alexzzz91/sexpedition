@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sexpedition_application_1/services/locale_storage.dart';
 
 const List<Locale> supportedAppLocales = [
   Locale('ru'),
@@ -39,20 +39,14 @@ class LocaleController extends ChangeNotifier {
   Locale? get locale => _locale;
 
   Future<void> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final languageCode = prefs.getString(_prefKey);
+    final languageCode = await readStoredLocale(_prefKey);
     if (languageCode == null || languageCode.isEmpty) return;
     _locale = Locale(languageCode);
   }
 
   Future<void> setLocale(Locale? locale) async {
     _locale = locale;
-    final prefs = await SharedPreferences.getInstance();
-    if (locale == null) {
-      await prefs.remove(_prefKey);
-    } else {
-      await prefs.setString(_prefKey, locale.languageCode);
-    }
+    await writeStoredLocale(_prefKey, locale?.languageCode);
     notifyListeners();
   }
 }
