@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sexpedition_application_1/l10n/app_localizations.dart';
 import 'package:sexpedition_application_1/screen/KinkQuizScreen.dart';
+import 'package:sexpedition_application_1/screen/PartnersScreen.dart';
 import 'package:sexpedition_application_1/services/locale_controller.dart';
 import 'package:sexpedition_application_1/services/partners_repository.dart';
 
@@ -151,6 +152,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => const KinkQuizScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.people),
+              title: Text(l.navPartners),
+              subtitle: const Text('Подключения и приглашения партнёров'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const PartnersScreen(),
                   ),
                 );
               },

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sexpedition_application_1/l10n/app_localizations.dart';
+import 'package:sexpedition_application_1/screen/AdventCalendarScreen.dart';
 import 'package:sexpedition_application_1/screen/CalendarScreen.dart';
 import 'package:sexpedition_application_1/screen/GameScreen.dart';
-import 'package:sexpedition_application_1/screen/PartnersScreen.dart';
 import 'package:sexpedition_application_1/screen/ProfileScreen.dart';
 import 'package:sexpedition_application_1/screen/WishesScreen.dart';
 
@@ -22,7 +22,7 @@ class _MainShellState extends State<MainShell> {
     final tabs = [
       (icon: Icons.calendar_month, label: l.navCalendar),
       (icon: Icons.favorite, label: l.navWishes),
-      (icon: Icons.people, label: l.navPartners),
+      (icon: Icons.auto_awesome, label: 'Адвент'),
       (icon: Icons.person, label: l.navProfile),
     ];
     return Scaffold(
@@ -31,7 +31,7 @@ class _MainShellState extends State<MainShell> {
         children: const [
           CalendarScreen(),
           WishesScreen(),
-          PartnersScreen(),
+          AdventCalendarScreen(),
           ProfileScreen(),
         ],
       ),

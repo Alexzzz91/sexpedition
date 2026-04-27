@@ -4,8 +4,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 enum CalendarEventKind {
   /// Запись о сексе (типы, позы, игрушки, длительность, оценка).
   sexRecord,
+
   /// Пожелание на ближайшие 2 дня (видно партнёрам).
   wishToday,
+
   /// Старая запись без типа (только заметка).
   legacy,
 }
@@ -32,21 +34,37 @@ class CalendarEvent {
 
   /// Для sex_record: типы секса (индексы или id из sexTypeLabels).
   final List<String> sexTypes;
+
   /// Для sex_record: id поз из справочника камасутры.
   final List<String> poseIds;
+
   /// Для sex_record: id или названия игрушек.
   final List<String> toyIds;
+
   /// Для sex_record: длительность в минутах.
   final int? durationMinutes;
+
   /// Для sex_record: оценка удовлетворённости 1–5.
   final int? satisfactionRating;
 
+  /// Для sex_record: пользовательское название места.
+  final String? placeName;
+
+  /// Для sex_record: широта выбранной точки.
+  final double? placeLatitude;
+
+  /// Для sex_record: долгота выбранной точки.
+  final double? placeLongitude;
+
   /// Для wish_today: ссылка на фильм/игрушку.
   final String? contentLink;
+
   /// Для wish_today: произвольный текст.
   final String? contentText;
+
   /// Для wish_today: URL загруженного изображения.
   final String? imageUrl;
+
   /// Для wish_today: видно партнёрам.
   final bool visibleToPartners;
 
@@ -62,6 +80,9 @@ class CalendarEvent {
     this.toyIds = const [],
     this.durationMinutes,
     this.satisfactionRating,
+    this.placeName,
+    this.placeLatitude,
+    this.placeLongitude,
     this.contentLink,
     this.contentText,
     this.imageUrl,
@@ -114,8 +135,15 @@ class CalendarEvent {
       map['sexTypes'] = sexTypes;
       map['poseIds'] = poseIds;
       map['toyIds'] = toyIds;
-      if (durationMinutes != null) map['durationMinutes'] = durationMinutes;
-      if (satisfactionRating != null) map['satisfactionRating'] = satisfactionRating;
+      if (durationMinutes != null) {
+        map['durationMinutes'] = durationMinutes;
+      }
+      if (satisfactionRating != null) {
+        map['satisfactionRating'] = satisfactionRating;
+      }
+      map['placeName'] = placeName;
+      map['placeLatitude'] = placeLatitude;
+      map['placeLongitude'] = placeLongitude;
     }
     if (kind == CalendarEventKind.wishToday) {
       if (contentLink != null) map['contentLink'] = contentLink;
@@ -126,7 +154,9 @@ class CalendarEvent {
     return map;
   }
 
-  static CalendarEvent fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+  static CalendarEvent fromFirestore(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final data = doc.data()!;
     final date = (data['date'] as Timestamp).toDate();
     final kind = _kindFromStorage(data['kind'] as String?);
@@ -149,6 +179,9 @@ class CalendarEvent {
       toyIds: listFrom(data['toyIds']),
       durationMinutes: data['durationMinutes'] as int?,
       satisfactionRating: data['satisfactionRating'] as int?,
+      placeName: data['placeName'] as String?,
+      placeLatitude: (data['placeLatitude'] as num?)?.toDouble(),
+      placeLongitude: (data['placeLongitude'] as num?)?.toDouble(),
       contentLink: data['contentLink'] as String?,
       contentText: data['contentText'] as String?,
       imageUrl: data['imageUrl'] as String?,
@@ -168,6 +201,9 @@ class CalendarEvent {
     List<String>? toyIds,
     int? durationMinutes,
     int? satisfactionRating,
+    String? placeName,
+    double? placeLatitude,
+    double? placeLongitude,
     String? contentLink,
     String? contentText,
     String? imageUrl,
@@ -185,6 +221,9 @@ class CalendarEvent {
       toyIds: toyIds ?? this.toyIds,
       durationMinutes: durationMinutes ?? this.durationMinutes,
       satisfactionRating: satisfactionRating ?? this.satisfactionRating,
+      placeName: placeName ?? this.placeName,
+      placeLatitude: placeLatitude ?? this.placeLatitude,
+      placeLongitude: placeLongitude ?? this.placeLongitude,
       contentLink: contentLink ?? this.contentLink,
       contentText: contentText ?? this.contentText,
       imageUrl: imageUrl ?? this.imageUrl,

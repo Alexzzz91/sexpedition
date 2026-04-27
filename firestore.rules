@@ -49,6 +49,12 @@ service cloud.firestore {
       allow update, delete: if isSignedIn() && isOwner(resource.data.userId);
     }
 
+    match /advent_days/{dayId} {
+      allow read: if isSignedIn() && isOwner(resource.data.userId);
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+      allow update, delete: if isSignedIn() && isOwner(resource.data.userId);
+    }
+
     match /kink_quiz_results/{resultId} {
       allow read: if isSignedIn() &&
         (isOwner(resource.data.userId) ||

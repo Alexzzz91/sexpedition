@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:sexpedition_application_1/data/kamasutra_poses.dart';
 import 'package:sexpedition_application_1/models/calendar_event.dart';
 import 'package:sexpedition_application_1/models/user_toy.dart';
+import 'package:sexpedition_application_1/screen/map_place_picker.dart';
 import 'package:sexpedition_application_1/services/user_toys_repository.dart';
 
 sealed class AddEventDialogResult {}
@@ -19,6 +20,9 @@ class AddEventDialogSaveSexRecord extends AddEventDialogResult {
     this.durationMinutes,
     this.satisfactionRating,
     this.note,
+    this.placeName,
+    this.placeLatitude,
+    this.placeLongitude,
   });
   final DateTime date;
   final String? partnerId;
@@ -28,6 +32,9 @@ class AddEventDialogSaveSexRecord extends AddEventDialogResult {
   final int? durationMinutes;
   final int? satisfactionRating;
   final String? note;
+  final String? placeName;
+  final double? placeLatitude;
+  final double? placeLongitude;
 }
 
 class AddEventDialogSaveWish extends AddEventDialogResult {
@@ -333,6 +340,9 @@ class _SexRecordFormState extends State<_SexRecordForm> {
   final _durationController = TextEditingController();
   int? _satisfactionRating;
   final _noteController = TextEditingController();
+  final _placeNameController = TextEditingController();
+  double? _placeLatitude;
+  double? _placeLongitude;
 
   @override
   void initState() {
@@ -346,10 +356,14 @@ class _SexRecordFormState extends State<_SexRecordForm> {
       }
       _poseIds.addAll(e.poseIds);
       _toyIds.addAll(e.toyIds);
-      if (e.durationMinutes != null)
+      if (e.durationMinutes != null) {
         _durationController.text = e.durationMinutes.toString();
+      }
       _satisfactionRating = e.satisfactionRating;
       _noteController.text = e.note ?? '';
+      _placeNameController.text = e.placeName ?? '';
+      _placeLatitude = e.placeLatitude;
+      _placeLongitude = e.placeLongitude;
     } else {
       final prefill = widget.prefillFromWish;
       if (prefill != null) {
@@ -366,6 +380,7 @@ class _SexRecordFormState extends State<_SexRecordForm> {
   void dispose() {
     _durationController.dispose();
     _noteController.dispose();
+    _placeNameController.dispose();
     super.dispose();
   }
 
@@ -482,9 +497,35 @@ class _SexRecordFormState extends State<_SexRecordForm> {
     });
   }
 
+  Future<void> _pickPlace() async {
+    final result = await Navigator.of(context).push<MapPlaceResult>(
+      MaterialPageRoute(
+        builder: (_) => MapPlacePicker(
+          initialLatitude: _placeLatitude,
+          initialLongitude: _placeLongitude,
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _placeLatitude = result.latitude;
+      _placeLongitude = result.longitude;
+    });
+  }
+
+  void _clearPlace() {
+    setState(() {
+      _placeNameController.clear();
+      _placeLatitude = null;
+      _placeLongitude = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final title = widget.existing != null ? 'Редактировать запись о сексе' : 'Запись о сексе';
+    final title = widget.existing != null
+        ? 'Редактировать запись о сексе'
+        : 'Запись о сексе';
     return Dialog(
       insetPadding: const EdgeInsets.all(16),
       child: ConstrainedBox(
@@ -501,7 +542,12 @@ class _SexRecordFormState extends State<_SexRecordForm> {
                       icon: const Icon(Icons.arrow_back),
                       onPressed: widget.onBack,
                     ),
-                  Expanded(child: Text(title, style: Theme.of(context).textTheme.titleLarge)),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ),
                   IconButton(
                     tooltip: 'Закрыть',
                     onPressed: widget.onCancel,
@@ -517,211 +563,278 @@ class _SexRecordFormState extends State<_SexRecordForm> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-              Text(
-                'Дата: ${widget.date.day}.${widget.date.month}.${widget.date.year}',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 16),
-              if (widget.partnersList.isNotEmpty) ...[
-                DropdownButtonFormField<String?>(
-                  initialValue: _partnerId,
-                  decoration: const InputDecoration(
-                    labelText: 'Партнёр',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [
-                    const DropdownMenuItem(
-                      value: null,
-                      child: Text('Не выбран'),
+                    Text(
+                      'Дата: ${widget.date.day}.${widget.date.month}.${widget.date.year}',
+                      style: Theme.of(context).textTheme.bodyMedium,
                     ),
-                    ...widget.partnersList.map(
-                      (p) => DropdownMenuItem(
-                        value: p.userId,
-                        child: Text(p.label),
+                    const SizedBox(height: 16),
+                    if (widget.partnersList.isNotEmpty) ...[
+                      DropdownButtonFormField<String?>(
+                        initialValue: _partnerId,
+                        decoration: const InputDecoration(
+                          labelText: 'Партнёр',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: [
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('Не выбран'),
+                          ),
+                          ...widget.partnersList.map(
+                            (p) => DropdownMenuItem(
+                              value: p.userId,
+                              child: Text(p.label),
+                            ),
+                          ),
+                        ],
+                        onChanged: (v) => setState(() => _partnerId = v),
                       ),
+                      const SizedBox(height: 16),
+                    ],
+                    Text(
+                      'Тип секса',
+                      style: Theme.of(context).textTheme.titleSmall,
                     ),
-                  ],
-                  onChanged: (v) => setState(() => _partnerId = v),
-                ),
-                const SizedBox(height: 16),
-              ],
-              Text('Тип секса', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: List.generate(sexTypeLabels.length, (i) {
-                  final selected = _sexTypeIndices.contains(i);
-                  return FilterChip(
-                    label: Text(sexTypeLabels[i]),
-                    selected: selected,
-                    onSelected: (_) => _toggleSexType(i),
-                  );
-                }),
-              ),
-              const SizedBox(height: 16),
-              Text('Позы', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final p in kamasutraPoses)
-                    SizedBox(
-                      width: 240,
-                      height: 165,
-                      child: Material(
-                            borderRadius: BorderRadius.circular(12),
-                            color: Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHighest
-                                .withValues(
-                                  alpha: _poseIds.contains(p.id) ? 0.35 : 0.18,
-                                ),
-                            child: InkWell(
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: List.generate(sexTypeLabels.length, (i) {
+                        final selected = _sexTypeIndices.contains(i);
+                        return FilterChip(
+                          label: Text(sexTypeLabels[i]),
+                          selected: selected,
+                          onSelected: (_) => _toggleSexType(i),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 16),
+                    Text('Позы', style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final p in kamasutraPoses)
+                          SizedBox(
+                            width: 240,
+                            height: 165,
+                            child: Material(
                               borderRadius: BorderRadius.circular(12),
-                              onTap: () => _togglePose(p.id),
-                              child: Padding(
-                                padding: const EdgeInsets.all(8),
-                                child: Column(
-                                  children: [
-                                    Expanded(
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(10),
-                                        child: Container(
-                                          width: double.infinity,
-                                          color: Theme.of(context).colorScheme.surface,
-                                          alignment: Alignment.center,
-                                          child: SvgPicture.asset(p.imageAsset),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            p.label,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: Theme.of(context).textTheme.bodySmall,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest
+                                  .withValues(
+                                    alpha: _poseIds.contains(p.id)
+                                        ? 0.35
+                                        : 0.18,
+                                  ),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () => _togglePose(p.id),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: Column(
+                                    children: [
+                                      Expanded(
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          child: Container(
+                                            width: double.infinity,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.surface,
+                                            alignment: Alignment.center,
+                                            child: SvgPicture.asset(
+                                              p.imageAsset,
+                                            ),
                                           ),
                                         ),
-                                        IconButton(
-                                          iconSize: 18,
-                                          visualDensity: VisualDensity.compact,
-                                          onPressed: () => _showPoseDetails(p),
-                                          icon: const Icon(Icons.info_outline),
-                                        ),
-                                        Checkbox(
-                                          value: _poseIds.contains(p.id),
-                                          onChanged: (_) => _togglePose(p.id),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              p.label,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: Theme.of(
+                                                context,
+                                              ).textTheme.bodySmall,
+                                            ),
+                                          ),
+                                          IconButton(
+                                            iconSize: 18,
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            onPressed: () =>
+                                                _showPoseDetails(p),
+                                            icon: const Icon(
+                                              Icons.info_outline,
+                                            ),
+                                          ),
+                                          Checkbox(
+                                            value: _poseIds.contains(p.id),
+                                            onChanged: (_) => _togglePose(p.id),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
                           ),
+                      ],
                     ),
-                ],
-              ),
-              if (_poseIds.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: _poseIds.map((id) {
-                    final pose = _poseById(id);
-                    return InputChip(
-                      label: Text(pose?.label ?? id),
-                      onDeleted: () => _togglePose(id),
-                    );
-                  }).toList(),
-                ),
-              ],
-              const SizedBox(height: 8),
-              StreamBuilder<List<UserToy>>(
-                stream: widget.toysRepository.watchToys(),
-                builder: (context, snap) {
-                  final toys = snap.data ?? [];
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'Игрушки',
-                            style: Theme.of(context).textTheme.titleSmall,
-                          ),
-                          const SizedBox(width: 8),
-                          TextButton.icon(
-                            icon: const Icon(Icons.add, size: 18),
-                            label: const Text('Добавить'),
-                            onPressed: () => _showAddToyDialog(context, toys),
-                          ),
-                        ],
+                    if (_poseIds.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: _poseIds.map((id) {
+                          final pose = _poseById(id);
+                          return InputChip(
+                            label: Text(pose?.label ?? id),
+                            onDeleted: () => _togglePose(id),
+                          );
+                        }).toList(),
                       ),
-                      const SizedBox(height: 4),
-                      if (toys.isEmpty)
-                        const Text(
-                          'Список пуст. Нажмите «Добавить».',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                        )
-                      else
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 4,
-                          children: toys.map((t) {
-                            final selected = _toyIds.contains(t.id);
-                            return FilterChip(
-                              label: Text(t.name),
-                              selected: selected,
-                              onSelected: (_) => _toggleToy(t.id),
-                            );
-                          }).toList(),
-                        ),
                     ],
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _durationController,
-                decoration: const InputDecoration(
-                  labelText: 'Длительность (минуты)',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Оценка удовлетворённости (1–5)',
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-              Row(
-                children: List.generate(5, (i) {
-                  final value = i + 1;
-                  final selected = _satisfactionRating == value;
-                  return IconButton(
-                    icon: Icon(selected ? Icons.star : Icons.star_border),
-                    color: selected ? Colors.amber : null,
-                    onPressed: () => setState(
-                      () => _satisfactionRating = selected ? null : value,
+                    const SizedBox(height: 8),
+                    StreamBuilder<List<UserToy>>(
+                      stream: widget.toysRepository.watchToys(),
+                      builder: (context, snap) {
+                        final toys = snap.data ?? [];
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  'Игрушки',
+                                  style: Theme.of(context).textTheme.titleSmall,
+                                ),
+                                const SizedBox(width: 8),
+                                TextButton.icon(
+                                  icon: const Icon(Icons.add, size: 18),
+                                  label: const Text('Добавить'),
+                                  onPressed: () =>
+                                      _showAddToyDialog(context, toys),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            if (toys.isEmpty)
+                              const Text(
+                                'Список пуст. Нажмите «Добавить».',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              )
+                            else
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                children: toys.map((t) {
+                                  final selected = _toyIds.contains(t.id);
+                                  return FilterChip(
+                                    label: Text(t.name),
+                                    selected: selected,
+                                    onSelected: (_) => _toggleToy(t.id),
+                                  );
+                                }).toList(),
+                              ),
+                          ],
+                        );
+                      },
                     ),
-                  );
-                }),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _noteController,
-                decoration: const InputDecoration(
-                  labelText: 'Заметка',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 2,
-              ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _durationController,
+                      decoration: const InputDecoration(
+                        labelText: 'Длительность (минуты)',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Оценка удовлетворённости (1–5)',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    Row(
+                      children: List.generate(5, (i) {
+                        final value = i + 1;
+                        final selected = _satisfactionRating == value;
+                        return IconButton(
+                          icon: Icon(selected ? Icons.star : Icons.star_border),
+                          color: selected ? Colors.amber : null,
+                          onPressed: () => setState(
+                            () => _satisfactionRating = selected ? null : value,
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Место',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _placeNameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Название места',
+                        hintText: 'Например: отель на берегу',
+                        border: OutlineInputBorder(),
+                      ),
+                      textCapitalization: TextCapitalization.sentences,
+                    ),
+                    const SizedBox(height: 8),
+                    Card(
+                      margin: EdgeInsets.zero,
+                      child: ListTile(
+                        leading: const Icon(Icons.map_outlined),
+                        title: Text(
+                          _placeLatitude == null || _placeLongitude == null
+                              ? 'Точка на карте не выбрана'
+                              : '${_placeLatitude!.toStringAsFixed(5)}, ${_placeLongitude!.toStringAsFixed(5)}',
+                        ),
+                        subtitle: const Text('OpenStreetMap'),
+                        trailing: Wrap(
+                          spacing: 4,
+                          children: [
+                            if (_placeLatitude != null &&
+                                _placeLongitude != null)
+                              IconButton(
+                                tooltip: 'Очистить место',
+                                onPressed: _clearPlace,
+                                icon: const Icon(Icons.close),
+                              ),
+                            IconButton(
+                              tooltip: 'Выбрать на карте',
+                              onPressed: _pickPlace,
+                              icon: const Icon(Icons.chevron_right),
+                            ),
+                          ],
+                        ),
+                        onTap: _pickPlace,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _noteController,
+                      decoration: const InputDecoration(
+                        labelText: 'Заметка',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 2,
+                    ),
                   ],
                 ),
               ),
@@ -736,15 +849,22 @@ class _SexRecordFormState extends State<_SexRecordForm> {
                       onPressed: widget.onDelete,
                       child: Text(
                         'Удалить',
-                        style: TextStyle(color: Theme.of(context).colorScheme.error),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                       ),
                     ),
                   const Spacer(),
-                  TextButton(onPressed: widget.onCancel, child: const Text('Отмена')),
+                  TextButton(
+                    onPressed: widget.onCancel,
+                    child: const Text('Отмена'),
+                  ),
                   const SizedBox(width: 8),
                   FilledButton(
                     onPressed: () {
-                      final duration = int.tryParse(_durationController.text.trim());
+                      final duration = int.tryParse(
+                        _durationController.text.trim(),
+                      );
                       widget.onSave(
                         AddEventDialogSaveSexRecord(
                           date: widget.date,
@@ -754,11 +874,20 @@ class _SexRecordFormState extends State<_SexRecordForm> {
                           toyIds: _toyIds.toList(),
                           durationMinutes: duration,
                           satisfactionRating: _satisfactionRating,
-                          note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
+                          note: _noteController.text.trim().isEmpty
+                              ? null
+                              : _noteController.text.trim(),
+                          placeName: _placeNameController.text.trim().isEmpty
+                              ? null
+                              : _placeNameController.text.trim(),
+                          placeLatitude: _placeLatitude,
+                          placeLongitude: _placeLongitude,
                         ),
                       );
                     },
-                    child: Text(widget.existing != null ? 'Сохранить' : 'Добавить'),
+                    child: Text(
+                      widget.existing != null ? 'Сохранить' : 'Добавить',
+                    ),
                   ),
                 ],
               ),
@@ -889,12 +1018,13 @@ class _WishTodayFormState extends State<_WishTodayForm> {
     setState(() => _uploading = true);
     try {
       final url = await widget.uploadImage(file);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _imageUrl = url;
           _pickedFile = file;
           _uploading = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _uploading = false);
     }

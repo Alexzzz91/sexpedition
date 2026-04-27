@@ -186,6 +186,7 @@ class _ScratchPoseGameState extends State<_ScratchPoseGame>
   String? _sessionId;
   bool _revealed = false;
   bool _saving = false;
+  bool _isScratching = false;
 
   @override
   void initState() {
@@ -214,6 +215,7 @@ class _ScratchPoseGameState extends State<_ScratchPoseGame>
   }
 
   void _scratch(Offset position) {
+    if (_revealed) return;
     GameSoundService.instance.playScratch();
     setState(() {
       final previous = _lastScratchPoint;
@@ -226,17 +228,29 @@ class _ScratchPoseGameState extends State<_ScratchPoseGame>
       _scratchPoints.add(position);
       if (_scratchProgress >= 1 && !_revealed) {
         _revealed = true;
+        _isScratching = false;
+        _lastScratchPoint = null;
         _revealController.forward();
       }
     });
   }
 
   void _startScratch(Offset position) {
+    if (_revealed) return;
     setState(() {
+      _isScratching = true;
       _scratchPoints.add(null);
       _lastScratchPoint = null;
     });
     _scratch(position);
+  }
+
+  void _stopScratch() {
+    if (!_isScratching) return;
+    setState(() {
+      _isScratching = false;
+      _lastScratchPoint = null;
+    });
   }
 
   double get _scratchProgress {
@@ -270,6 +284,7 @@ class _ScratchPoseGameState extends State<_ScratchPoseGame>
   @override
   Widget build(BuildContext context) {
     return ListView(
+      physics: _isScratching ? const NeverScrollableScrollPhysics() : null,
       padding: const EdgeInsets.all(20),
       children: [
         _BackToGamesButton(onPressed: widget.onBack),
@@ -278,94 +293,100 @@ class _ScratchPoseGameState extends State<_ScratchPoseGame>
         const SizedBox(height: 8),
         const Text('Под верхним слоем спрятана случайная поза.'),
         const SizedBox(height: 16),
-        AspectRatio(
-          aspectRatio: 1,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-              ),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  FadeTransition(
-                    opacity: Tween<double>(begin: 0.74, end: 1).animate(
-                      CurvedAnimation(
-                        parent: _revealController,
-                        curve: Curves.easeOutCubic,
-                      ),
-                    ),
-                    child: ScaleTransition(
-                      scale: Tween<double>(begin: 0.97, end: 1).animate(
+        RepaintBoundary(
+          child: AspectRatio(
+            aspectRatio: 1,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    FadeTransition(
+                      opacity: Tween<double>(begin: 0.74, end: 1).animate(
                         CurvedAnimation(
                           parent: _revealController,
-                          curve: Curves.easeOutBack,
+                          curve: Curves.easeOutCubic,
                         ),
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          children: [
-                            Expanded(child: SvgPicture.asset(_pose.imageAsset)),
-                            const SizedBox(height: 12),
-                            Text(
-                              _pose.label,
-                              style: Theme.of(context).textTheme.titleLarge,
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              _pose.description,
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
+                      child: ScaleTransition(
+                        scale: Tween<double>(begin: 0.97, end: 1).animate(
+                          CurvedAnimation(
+                            parent: _revealController,
+                            curve: Curves.easeOutBack,
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            children: [
+                              Expanded(
+                                child: SvgPicture.asset(_pose.imageAsset),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                _pose.label,
+                                style: Theme.of(context).textTheme.titleLarge,
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                _pose.description,
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  AnimatedBuilder(
-                    animation: _revealController,
-                    builder: (context, _) {
-                      final overlayOpacity = _revealed
-                          ? 1 - _revealController.value
-                          : 1.0;
-                      if (overlayOpacity <= 0) return const SizedBox.shrink();
+                    AnimatedBuilder(
+                      animation: _revealController,
+                      builder: (context, _) {
+                        final overlayOpacity = _revealed
+                            ? 1 - _revealController.value
+                            : 1.0;
+                        if (overlayOpacity <= 0) return const SizedBox.shrink();
 
-                      final overlay = Opacity(
-                        opacity: overlayOpacity,
-                        child: CustomPaint(
-                          painter: _ScratchLayerPainter(
-                            points: _scratchPoints,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          child: Center(
-                            child: AnimatedOpacity(
-                              opacity: _scratchProgress < 0.18 ? 1 : 0,
-                              duration: const Duration(milliseconds: 180),
-                              child: const Text(
-                                'Сотрите пальцем',
-                                style: TextStyle(fontWeight: FontWeight.w700),
+                        final overlay = Opacity(
+                          opacity: overlayOpacity,
+                          child: CustomPaint(
+                            painter: _ScratchLayerPainter(
+                              points: List<Offset?>.of(_scratchPoints),
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            child: Center(
+                              child: AnimatedOpacity(
+                                opacity: _scratchProgress < 0.18 ? 1 : 0,
+                                duration: const Duration(milliseconds: 180),
+                                child: const Text(
+                                  'Сотрите пальцем',
+                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      );
+                        );
 
-                      if (_revealed) {
-                        return IgnorePointer(child: overlay);
-                      }
-                      return GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onPanDown: (details) =>
-                            _startScratch(details.localPosition),
-                        onPanUpdate: (details) =>
-                            _scratch(details.localPosition),
-                        child: overlay,
-                      );
-                    },
-                  ),
-                ],
+                        if (_revealed) {
+                          return IgnorePointer(child: overlay);
+                        }
+                        return Listener(
+                          behavior: HitTestBehavior.opaque,
+                          onPointerDown: (event) =>
+                              _startScratch(event.localPosition),
+                          onPointerMove: (event) =>
+                              _scratch(event.localPosition),
+                          onPointerUp: (_) => _stopScratch(),
+                          onPointerCancel: (_) => _stopScratch(),
+                          child: overlay,
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

@@ -43,7 +43,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   String? _eventSubtitle(CalendarEvent e) {
-    if (e.isSexRecord && e.note?.isNotEmpty == true) return e.note;
+    if (e.isSexRecord) {
+      final parts = <String>[];
+      if (e.placeName?.isNotEmpty == true) parts.add('Место: ${e.placeName}');
+      if (e.note?.isNotEmpty == true) parts.add(e.note!);
+      return parts.isEmpty ? null : parts.join(' · ');
+    }
     if (e.isWishToday && e.sexTypes.isNotEmpty) return e.sexTypes.join(', ');
     return null;
   }
@@ -612,6 +617,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
         durationMinutes: result.durationMinutes,
         satisfactionRating: result.satisfactionRating,
         note: result.note,
+        placeName: result.placeName,
+        placeLatitude: result.placeLatitude,
+        placeLongitude: result.placeLongitude,
       );
       if (existing != null) {
         await _eventsRepo.updateEvent(event);
