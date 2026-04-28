@@ -37,10 +37,16 @@ class AdventCalendarRepository {
     if (uid == null) return null;
     final normalized = DateTime(day.year, day.month, day.day);
     final key = dateKey(normalized);
-    final ref = _days.doc(_documentId(uid, key));
-    final snapshot = await ref.get();
-    if (snapshot.exists) return AdventDay.fromFirestore(snapshot);
+    final existing = await _days
+        .where('userId', isEqualTo: uid)
+        .where('dateKey', isEqualTo: key)
+        .limit(1)
+        .get();
+    if (existing.docs.isNotEmpty) {
+      return AdventDay.fromFirestore(existing.docs.first);
+    }
 
+    final ref = _days.doc(_documentId(uid, key));
     final task = _taskFor(uid, key);
     final model = AdventDay(
       id: ref.id,

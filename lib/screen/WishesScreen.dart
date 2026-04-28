@@ -82,6 +82,7 @@ class _WishesScreenState extends State<WishesScreen>
             stream: _myWishesStream,
             repo: _wishesRepo,
             toysRepo: _toysRepo,
+            partnersRepo: _partnersRepo,
           ),
           _PartnersWishesTab(
             partnersRepo: _partnersRepo,
@@ -97,12 +98,139 @@ class _WishesScreenState extends State<WishesScreen>
   }
 }
 
-class _MyWishesList extends StatelessWidget {
+class _MyWishesList extends StatefulWidget {
   const _MyWishesList({
     required this.stream,
     required this.repo,
     required this.toysRepo,
+    required this.partnersRepo,
   });
+
+  final Stream<List<Wish>> stream;
+  final WishesRepository repo;
+  final UserToysRepository toysRepo;
+  final PartnersRepository partnersRepo;
+
+  @override
+  State<_MyWishesList> createState() => _MyWishesListState();
+}
+
+class _MyWishesListState extends State<_MyWishesList>
+    with SingleTickerProviderStateMixin {
+  late final TabController _innerTabController;
+  late final Stream<List<PartnerConnection>> _partnersStream;
+  Stream<List<Wish>>? _ownUnmatchedWishesStream;
+  Stream<List<Wish>>? _matchedWishesStream;
+  String? _activeConnectionId;
+  String? _activeUid;
+
+  @override
+  void initState() {
+    super.initState();
+    _innerTabController = TabController(length: 2, vsync: this);
+    _partnersStream = widget.partnersRepo.watchAcceptedPartners();
+  }
+
+  @override
+  void dispose() {
+    _innerTabController.dispose();
+    super.dispose();
+  }
+
+  void _bindMatchStreams({required String connectionId, required String uid}) {
+    if (_activeConnectionId == connectionId && _activeUid == uid) {
+      return;
+    }
+    _activeConnectionId = connectionId;
+    _activeUid = uid;
+    _ownUnmatchedWishesStream = widget.repo.watchOwnUnmatchedWishes(
+      connectionId,
+      uid,
+    );
+    _matchedWishesStream = widget.repo.watchMatchedWishes(connectionId);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<PartnerConnection>>(
+      stream: _partnersStream,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final partners = snapshot.data!;
+        final myUid = widget.partnersRepo.currentUserId;
+        if (myUid == null || partners.isEmpty) {
+          return _PlainMyWishesList(
+            stream: widget.stream,
+            repo: widget.repo,
+            toysRepo: widget.toysRepo,
+          );
+        }
+
+        final connection = partners.first;
+        _bindMatchStreams(connectionId: connection.id, uid: myUid);
+        final ownUnmatchedStream = _ownUnmatchedWishesStream;
+        final matchedStream = _matchedWishesStream;
+        if (ownUnmatchedStream == null || matchedStream == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: FilledButton.icon(
+                onPressed: () => _showAddSecretWishDialog(
+                  context,
+                  widget.repo,
+                  widget.toysRepo,
+                  connection.id,
+                ),
+                icon: const Icon(Icons.add),
+                label: const Text('Добавить секретное желание'),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: TabBar(
+                controller: _innerTabController,
+                tabs: const [
+                  Tab(text: 'Мои секретные'),
+                  Tab(text: 'Совпадения'),
+                ],
+              ),
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _innerTabController,
+                children: [
+                  _SecretWishesList(
+                    stream: ownUnmatchedStream,
+                    repo: widget.repo,
+                    toysRepo: widget.toysRepo,
+                  ),
+                  _MatchedWishesList(
+                    stream: matchedStream,
+                    repo: widget.repo,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PlainMyWishesList extends StatelessWidget {
+  const _PlainMyWishesList({
+    required this.stream,
+    required this.repo,
+    required this.toysRepo,
+  });
+
   final Stream<List<Wish>> stream;
   final WishesRepository repo;
   final UserToysRepository toysRepo;
@@ -160,6 +288,113 @@ class _MyWishesList extends StatelessWidget {
                   _showAddOrEditWishDialog(context, repo, toysRepo, wish),
             );
           },
+        );
+      },
+    );
+  }
+}
+
+class _SecretWishesList extends StatelessWidget {
+  const _SecretWishesList({
+    required this.stream,
+    required this.repo,
+    required this.toysRepo,
+  });
+
+  final Stream<List<Wish>> stream;
+  final WishesRepository repo;
+  final UserToysRepository toysRepo;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<Wish>>(
+      stream: stream,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'Ошибка: ${snapshot.error}',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final list = snapshot.data!;
+        if (list.isEmpty) {
+          return const Center(
+            child: Text(
+              'Пока нет секретных желаний. Добавьте первое желание выше.',
+              textAlign: TextAlign.center,
+            ),
+          );
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: list.length,
+          itemBuilder: (context, i) {
+            final wish = list[i];
+            return _WishTile(
+              wish: wish,
+              repo: repo,
+              onTap: () =>
+                  _showAddOrEditWishDialog(context, repo, toysRepo, wish),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _MatchedWishesList extends StatelessWidget {
+  const _MatchedWishesList({
+    required this.stream,
+    required this.repo,
+  });
+
+  final Stream<List<Wish>> stream;
+  final WishesRepository repo;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<Wish>>(
+      stream: stream,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'Ошибка: ${snapshot.error}',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final list = snapshot.data!;
+        if (list.isEmpty) {
+          return const Center(
+            child: Text(
+              'Пока нет совпадений. Добавьте секретные желания с тегами.',
+              textAlign: TextAlign.center,
+            ),
+          );
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: list.length,
+          itemBuilder: (context, i) => _MatchedWishTile(
+            wish: list[i],
+            repo: repo,
+          ),
         );
       },
     );
@@ -253,6 +488,126 @@ class _WishTile extends StatelessWidget {
   }
 }
 
+class _MatchedWishTile extends StatelessWidget {
+  const _MatchedWishTile({
+    required this.wish,
+    required this.repo,
+  });
+
+  final Wish wish;
+  final WishesRepository repo;
+
+  Future<void> _sendSoftSuggestion(
+    BuildContext context,
+    String message,
+  ) async {
+    final ok = await repo.sendSoftSuggestion(
+      wish: wish,
+      message: message,
+    );
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? 'Мягкое предложение отправлено'
+              : 'Не удалось отправить предложение',
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _wishTileTitle(wish),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                Chip(
+                  label: Text(_wishStatusLabel(wish.status)),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                for (final tag in wish.normalizedTags.take(4))
+                  Chip(
+                    label: Text(tag),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton(
+                  onPressed: () => repo.updateWishStatus(wish.id, WishStatus.discuss),
+                  child: const Text('Обсудить'),
+                ),
+                OutlinedButton(
+                  onPressed: () => repo.updateWishStatus(wish.id, WishStatus.planned),
+                  child: const Text('Запланировать'),
+                ),
+                FilledButton.tonal(
+                  onPressed: () => repo.updateWishStatus(wish.id, WishStatus.done),
+                  child: const Text('Выполнено'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                TextButton.icon(
+                  onPressed: () => _sendSoftSuggestion(
+                    context,
+                    'Хочу обсудить это с тобой',
+                  ),
+                  icon: const Icon(Icons.chat_bubble_outline),
+                  label: const Text('Хочу обсудить это с тобой'),
+                ),
+                TextButton.icon(
+                  onPressed: () => _sendSoftSuggestion(
+                    context,
+                    'Давай попробуем в выходные?',
+                  ),
+                  icon: const Icon(Icons.favorite_border),
+                  label: const Text('Давай попробуем в выходные?'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _wishStatusLabel(WishStatus status) {
+  switch (status) {
+    case WishStatus.newWish:
+      return 'Новый матч';
+    case WishStatus.discuss:
+      return 'Обсудить';
+    case WishStatus.planned:
+      return 'Запланировано';
+    case WishStatus.done:
+      return 'Выполнено';
+  }
+}
+
 class _WishDialogResult {
   const _WishDialogResult({
     required this.type,
@@ -321,6 +676,80 @@ Future<void> _showAddOrEditWishDialog(
       ),
     );
   }
+}
+
+Future<void> _showAddSecretWishDialog(
+  BuildContext context,
+  WishesRepository repo,
+  UserToysRepository toysRepo,
+  String connectionId,
+) async {
+  final result = await showDialog<_WishDialogResult>(
+    context: context,
+    builder: (context) => _AddOrEditWishDialog(existing: null, toysRepo: toysRepo),
+  );
+
+  if (result == null || !context.mounted) return;
+  if (!_isValidWishDialogResult(result)) return;
+
+  final normalizedTags = _buildNormalizedTags(result);
+  await repo.createSecretWish(
+    Wish(
+      id: '',
+      userId: '',
+      connectionId: connectionId,
+      authorUid: '',
+      type: result.type,
+      content: result.content.trim(),
+      isForNearFuture: result.isForNearFuture,
+      visibleToPartners: false,
+      visibility: WishVisibility.secretUntilMatch,
+      status: WishStatus.newWish,
+      normalizedTags: normalizedTags,
+      createdAt: DateTime.now(),
+      sexTypes: result.sexTypes,
+      poseIds: result.poseIds,
+      toyIds: result.toyIds,
+    ),
+  );
+}
+
+bool _isValidWishDialogResult(_WishDialogResult result) {
+  if (result.type != WishType.action && result.content.trim().isEmpty) {
+    return false;
+  }
+  if (result.type == WishType.action &&
+      result.sexTypes.isEmpty &&
+      result.poseIds.isEmpty &&
+      result.toyIds.isEmpty &&
+      result.content.trim().isEmpty) {
+    return false;
+  }
+  return true;
+}
+
+List<String> _buildNormalizedTags(_WishDialogResult result) {
+  final tags = <String>[
+    ...result.sexTypes,
+    ...result.poseIds,
+    ...result.toyIds,
+    ..._extractContentTokens(result.content),
+  ];
+  final normalized = <String>{};
+  for (final tag in tags) {
+    final token = tag.trim().toLowerCase();
+    if (token.isNotEmpty) {
+      normalized.add(token);
+    }
+  }
+  return normalized.toList();
+}
+
+List<String> _extractContentTokens(String content) {
+  final trimmed = content.trim().toLowerCase();
+  if (trimmed.isEmpty) return const [];
+  final parts = trimmed.split(RegExp(r'[^a-zA-Z0-9а-яА-ЯёЁ]+'));
+  return parts.where((part) => part.length >= 3).toList();
 }
 
 class _AddOrEditWishDialog extends StatefulWidget {

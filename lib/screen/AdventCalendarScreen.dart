@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:sexpedition_application_1/models/advent_day.dart';
 import 'package:sexpedition_application_1/services/advent_calendar_repository.dart';
@@ -12,6 +15,7 @@ class AdventCalendarScreen extends StatefulWidget {
 
 class _AdventCalendarScreenState extends State<AdventCalendarScreen> {
   final AdventCalendarRepository _repo = AdventCalendarRepository();
+  StreamSubscription<User?>? _authSub;
   late DateTime _focusedDay;
   late DateTime _selectedDay;
   Future<AdventDay?>? _selectedFuture;
@@ -23,6 +27,16 @@ class _AdventCalendarScreenState extends State<AdventCalendarScreen> {
     _focusedDay = DateTime(today.year, today.month, today.day);
     _selectedDay = _focusedDay;
     _selectedFuture = _repo.ensureDay(_selectedDay);
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (!mounted || user == null) return;
+      setState(() => _selectedFuture = _repo.ensureDay(_selectedDay));
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
   }
 
   void _selectDay(DateTime day, DateTime focusedDay) {
@@ -100,9 +114,19 @@ class _AdventCalendarScreenState extends State<AdventCalendarScreen> {
                     if (snapshot.connectionState != ConnectionState.done) {
                       return const Center(child: CircularProgressIndicator());
                     }
+                    if (snapshot.hasError) {
+                      return const _AdventLoadErrorState();
+                    }
                     final day = snapshot.data;
                     if (day == null) {
-                      return const _AdventEmptyState();
+                      if (FirebaseAuth.instance.currentUser == null) {
+                        return const _AdventAuthRequiredState();
+                      }
+                      return _AdventNoTaskState(
+                        onRetry: () => setState(
+                          () => _selectedFuture = _repo.ensureDay(_selectedDay),
+                        ),
+                      );
                     }
                     return _AdventDayCard(
                       day: day,
@@ -204,8 +228,8 @@ class _AdventDayCard extends StatelessWidget {
   }
 }
 
-class _AdventEmptyState extends StatelessWidget {
-  const _AdventEmptyState();
+class _AdventAuthRequiredState extends StatelessWidget {
+  const _AdventAuthRequiredState();
 
   @override
   Widget build(BuildContext context) {
@@ -213,6 +237,49 @@ class _AdventEmptyState extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.all(16),
         child: Text('Войдите в аккаунт, чтобы открыть задание дня.'),
+      ),
+    );
+  }
+}
+
+class _AdventNoTaskState extends StatelessWidget {
+  const _AdventNoTaskState({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Не удалось загрузить задание дня.'),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: onRetry,
+              child: const Text('Повторить'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AdventLoadErrorState extends StatelessWidget {
+  const _AdventLoadErrorState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Card(
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Text(
+          'Ошибка загрузки задания дня. Проверьте подключение и настройки Firestore.',
+        ),
       ),
     );
   }

@@ -7,6 +7,28 @@ service cloud.firestore {
     function isOwner(uid) {
       return request.auth.uid == uid;
     }
+    function isConnectionMember(connectionId) {
+      return connectionId is string &&
+        connectionId != '' &&
+        exists(/databases/$(database)/documents/connections/$(connectionId)) &&
+        (isOwner(get(/databases/$(database)/documents/connections/$(connectionId)).data.fromUserId) ||
+         isOwner(get(/databases/$(database)/documents/connections/$(connectionId)).data.toUserId));
+    }
+    function isWishAuthor(data) {
+      return (data.authorUid is string && data.authorUid != '' && isOwner(data.authorUid)) ||
+        (data.userId is string && isOwner(data.userId));
+    }
+    function isWishMatched(data) {
+      return (data.matchedWithWishId is string && data.matchedWithWishId != '') ||
+        data.matchedAt is timestamp;
+    }
+    function isWishSecretUntilMatched(data) {
+      return (data.visibility == 'secret_until_match' || data.visibility == 'secretUntilMatch') &&
+        !isWishMatched(data);
+    }
+    function isLegacyWish(data) {
+      return (!(data.connectionId is string)) || data.connectionId == '';
+    }
 
     match /users/{userId} {
       allow read: if isSignedIn();
@@ -30,9 +52,40 @@ service cloud.firestore {
 
     match /wishes/{wishId} {
       allow read: if isSignedIn() &&
-        (isOwner(resource.data.userId) || resource.data.visibleToPartners == true);
-      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
-      allow update, delete: if isSignedIn() && isOwner(resource.data.userId);
+        (
+          isWishAuthor(resource.data) ||
+          (isLegacyWish(resource.data) &&
+            resource.data.visibleToPartners == true) ||
+          (
+            !isLegacyWish(resource.data) &&
+            isConnectionMember(resource.data.connectionId) &&
+            (
+              !isWishSecretUntilMatched(resource.data)
+            )
+          )
+        );
+      allow create: if isSignedIn() &&
+        isWishAuthor(request.resource.data) &&
+        isConnectionMember(request.resource.data.connectionId);
+      allow update: if isSignedIn() &&
+        (
+          (
+            isLegacyWish(resource.data) &&
+            isWishAuthor(resource.data) &&
+            request.resource.data.userId == resource.data.userId &&
+            request.resource.data.connectionId == resource.data.connectionId &&
+            request.resource.data.authorUid == resource.data.authorUid
+          ) ||
+          (
+            !isLegacyWish(resource.data) &&
+            (isWishAuthor(resource.data) || isConnectionMember(resource.data.connectionId)) &&
+            request.resource.data.userId == resource.data.userId &&
+            request.resource.data.connectionId == resource.data.connectionId &&
+            request.resource.data.authorUid == resource.data.authorUid &&
+            (!isWishSecretUntilMatched(resource.data) || isWishAuthor(resource.data))
+          )
+        );
+      allow delete: if isSignedIn() && isWishAuthor(resource.data);
     }
 
     match /user_toys/{toyId} {
