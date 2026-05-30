@@ -73,6 +73,7 @@ class CalendarAddEventDialog extends StatefulWidget {
     required this.uploadImage,
     this.startAtWishToday = false,
     this.complementToPartnerLabel,
+    this.canCreateSexRecord = true,
   });
 
   final DateTime date;
@@ -92,6 +93,7 @@ class CalendarAddEventDialog extends StatefulWidget {
 
   /// Подпись «В дополнение к пожеланию от [label]» в форме пожелания.
   final String? complementToPartnerLabel;
+  final bool canCreateSexRecord;
 
   @override
   State<CalendarAddEventDialog> createState() => _CalendarAddEventDialogState();
@@ -187,6 +189,7 @@ class _CalendarAddEventDialogState extends State<CalendarAddEventDialog> {
             : (fromWishList
                   ? _goBackFromSexRecordWhenFromWishList
                   : _goToChoice),
+        canSave: widget.canCreateSexRecord,
         onSave: (r) => Navigator.of(context).pop(r),
         onDelete: widget.existing != null
             ? () => Navigator.of(context).pop(AddEventDialogDelete())
@@ -221,7 +224,7 @@ class _CalendarAddEventDialogState extends State<CalendarAddEventDialog> {
             OutlinedButton.icon(
               icon: const Icon(Icons.favorite),
               label: const Text('Запись о сексе'),
-              onPressed: _goToSexRecord,
+              onPressed: widget.canCreateSexRecord ? _goToSexRecord : null,
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 48),
               ),
@@ -239,11 +242,20 @@ class _CalendarAddEventDialogState extends State<CalendarAddEventDialog> {
             OutlinedButton.icon(
               icon: const Icon(Icons.favorite_border),
               label: const Text('Запись о сексе по пожеланию'),
-              onPressed: _goToChoosePartnerWish,
+              onPressed: widget.canCreateSexRecord ? _goToChoosePartnerWish : null,
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 48),
               ),
             ),
+            if (!widget.canCreateSexRecord) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Запись о сексе доступна только для сегодняшней и прошедших дат.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -310,6 +322,7 @@ class _SexRecordForm extends StatefulWidget {
     this.prefillFromWish,
     required this.partnersList,
     required this.toysRepository,
+    this.canSave = true,
     this.onBack,
     required this.onSave,
     this.onDelete,
@@ -323,6 +336,7 @@ class _SexRecordForm extends StatefulWidget {
   final CalendarEvent? prefillFromWish;
   final List<({String userId, String label})> partnersList;
   final UserToysRepository toysRepository;
+  final bool canSave;
   final VoidCallback? onBack;
   final void Function(AddEventDialogSaveSexRecord) onSave;
   final VoidCallback? onDelete;
@@ -861,7 +875,8 @@ class _SexRecordFormState extends State<_SexRecordForm> {
                   ),
                   const SizedBox(width: 8),
                   FilledButton(
-                    onPressed: () {
+                    onPressed: widget.canSave
+                        ? () {
                       final duration = int.tryParse(
                         _durationController.text.trim(),
                       );
@@ -884,7 +899,8 @@ class _SexRecordFormState extends State<_SexRecordForm> {
                           placeLongitude: _placeLongitude,
                         ),
                       );
-                    },
+                    }
+                        : null,
                     child: Text(
                       widget.existing != null ? 'Сохранить' : 'Добавить',
                     ),

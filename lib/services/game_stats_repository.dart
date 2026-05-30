@@ -67,6 +67,37 @@ class GameStatsRepository {
     return ref.id;
   }
 
+  Future<String?> startTruthOrDareSession({
+    bool visibleToPartners = false,
+  }) async {
+    final uid = _uid;
+    if (uid == null) return null;
+    final now = DateTime.now();
+    final ref = await _sessions.add({
+      'userId': uid,
+      'type': GameSession.typeToStorage(GameSessionType.truthOrDare),
+      'status': GameSession.statusToStorage(GameSessionStatus.started),
+      'createdAt': Timestamp.fromDate(now),
+      'completedAt': null,
+      'durationMs': null,
+      'attemptCount': 0,
+      'skipCount': 0,
+      'visibleToPartners': visibleToPartners,
+      'participants': [uid],
+      'poseId': null,
+      'poseLabel': null,
+      'place': null,
+      'dicePose': null,
+      'rollHistory': const [],
+      'truthOrDareKind': null,
+      'truthOrDareLevel': null,
+      'truthOrDarePromptId': null,
+      'truthOrDarePromptText': null,
+      'truthOrDareHistory': const [],
+    });
+    return ref.id;
+  }
+
   Future<void> recordDiceRoll({
     required String sessionId,
     required String place,
@@ -86,6 +117,31 @@ class GameStatsRepository {
     });
   }
 
+  Future<void> recordTruthOrDareRound({
+    required String sessionId,
+    required String kind,
+    required String level,
+    required String promptId,
+    required String promptText,
+  }) async {
+    await _sessions.doc(sessionId).update({
+      'truthOrDareKind': kind,
+      'truthOrDareLevel': level,
+      'truthOrDarePromptId': promptId,
+      'truthOrDarePromptText': promptText,
+      'attemptCount': FieldValue.increment(1),
+      'truthOrDareHistory': FieldValue.arrayUnion([
+        {
+          'kind': kind,
+          'level': level,
+          'promptId': promptId,
+          'promptText': promptText,
+          'shownAt': Timestamp.fromDate(DateTime.now()),
+        },
+      ]),
+    });
+  }
+
   Future<void> completeScratchPoseSession({
     required String sessionId,
     required GameSessionStatus status,
@@ -99,6 +155,18 @@ class GameStatsRepository {
   }
 
   Future<void> completeDiceSession({
+    required String sessionId,
+    required GameSessionStatus status,
+    required DateTime startedAt,
+  }) async {
+    await _completeSession(
+      sessionId: sessionId,
+      status: status,
+      startedAt: startedAt,
+    );
+  }
+
+  Future<void> completeTruthOrDareSession({
     required String sessionId,
     required GameSessionStatus status,
     required DateTime startedAt,

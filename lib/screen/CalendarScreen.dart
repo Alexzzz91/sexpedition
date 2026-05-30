@@ -25,6 +25,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Map<DateTime, List<CalendarEvent>> _eventsMap = {};
 
   static DateTime _normalize(DateTime d) => CalendarEvent.toDateOnly(d);
+  bool _isFutureDate(DateTime d) =>
+      _normalize(d).isAfter(_normalize(DateTime.now()));
 
   String _eventTitle(CalendarEvent e) {
     if (e.isSexRecord) {
@@ -577,6 +579,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         uploadImage: (file) => uploadWishImage(file),
         startAtWishToday: startAtWishToday,
         complementToPartnerLabel: complementToPartnerLabel,
+        canCreateSexRecord: !_isFutureDate(date),
       ),
     );
 
@@ -605,6 +608,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
     if (!mounted) return;
     if (result is AddEventDialogSaveSexRecord) {
+      if (_isFutureDate(result.date)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Запись о сексе можно добавить только за сегодня или прошедшие даты',
+            ),
+          ),
+        );
+        return;
+      }
       final event = CalendarEvent(
         id: existing?.id ?? '',
         date: result.date,

@@ -16,7 +16,8 @@ class _KinkQuizScreenState extends State<KinkQuizScreen> {
   final Map<String, KinkQuizAnswer> _answers = {};
   String? _resultId;
   bool _visibleToPartners = false;
-  bool _loaded = false;
+  String? _hydratedResultId;
+  DateTime? _hydratedUpdatedAt;
   bool _saving = false;
 
   List<KinkQuizItem> get _items => enabledKinkQuizItems();
@@ -43,10 +44,14 @@ class _KinkQuizScreenState extends State<KinkQuizScreen> {
     return KinkQuizLevel.low;
   }
 
-  void _loadExisting(KinkQuizResult? result) {
-    if (_loaded) return;
-    _loaded = true;
+  void _syncWithStoredResult(KinkQuizResult? result) {
     if (result == null) return;
+    if (_hydratedResultId == result.id &&
+        _hydratedUpdatedAt == result.updatedAt) {
+      return;
+    }
+    _hydratedResultId = result.id;
+    _hydratedUpdatedAt = result.updatedAt;
     _resultId = result.id;
     _visibleToPartners = result.visibleToPartners;
     _answers
@@ -75,20 +80,31 @@ class _KinkQuizScreenState extends State<KinkQuizScreen> {
 
   Future<void> _save() async {
     setState(() => _saving = true);
-    await _repo.saveResult(
-      existingId: _resultId,
-      answers: _answers,
-      score: _score,
-      maxScore: _maxScore,
-      scoreRatio: _ratio,
-      level: _level,
-      visibleToPartners: _visibleToPartners,
-    );
-    if (!mounted) return;
-    setState(() => _saving = false);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context).saved)));
+    try {
+      final savedId = await _repo.saveResult(
+        existingId: _resultId,
+        answers: _answers,
+        score: _score,
+        maxScore: _maxScore,
+        scoreRatio: _ratio,
+        level: _level,
+        visibleToPartners: _visibleToPartners,
+      );
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _resultId = savedId ?? _resultId;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context).saved)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось сохранить анкету')),
+      );
+    }
   }
 
   @override
@@ -101,7 +117,7 @@ class _KinkQuizScreenState extends State<KinkQuizScreen> {
         builder: (context, snapshot) {
           if (snapshot.hasData ||
               snapshot.connectionState != ConnectionState.waiting) {
-            _loadExisting(snapshot.data);
+            _syncWithStoredResult(snapshot.data);
           }
           return ListView(
             padding: const EdgeInsets.all(16),

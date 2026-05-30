@@ -29,7 +29,9 @@ class _AdventCalendarScreenState extends State<AdventCalendarScreen> {
     _selectedFuture = _repo.ensureDay(_selectedDay);
     _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (!mounted || user == null) return;
-      setState(() => _selectedFuture = _repo.ensureDay(_selectedDay));
+      setState(() {
+        _selectedFuture = _repo.ensureDay(_selectedDay);
+      });
     });
   }
 
@@ -51,7 +53,9 @@ class _AdventCalendarScreenState extends State<AdventCalendarScreen> {
   Future<void> _respond(AdventDay day, AdventDayStatus status) async {
     await _repo.respond(day.id, status);
     if (!mounted) return;
-    setState(() => _selectedFuture = _repo.ensureDay(_selectedDay));
+    setState(() {
+      _selectedFuture = _repo.ensureDay(_selectedDay);
+    });
   }
 
   @override
@@ -123,9 +127,13 @@ class _AdventCalendarScreenState extends State<AdventCalendarScreen> {
                         return const _AdventAuthRequiredState();
                       }
                       return _AdventNoTaskState(
-                        onRetry: () => setState(
-                          () => _selectedFuture = _repo.ensureDay(_selectedDay),
-                        ),
+                        onRetry: () {
+                          setState(
+                            () {
+                              _selectedFuture = _repo.ensureDay(_selectedDay);
+                            },
+                          );
+                        },
                       );
                     }
                     return _AdventDayCard(

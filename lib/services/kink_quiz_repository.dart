@@ -12,35 +12,29 @@ class KinkQuizRepository {
 
   CollectionReference<Map<String, dynamic>> get _results =>
       _firestore.collection(_kinkQuizResultsCol);
+  DocumentReference<Map<String, dynamic>> _myResultDoc(String uid) =>
+      _results.doc(uid);
 
   Stream<KinkQuizResult?> watchMyResult() {
     final uid = _uid;
     if (uid == null) return Stream.value(null);
-    return _results
-        .where('userId', isEqualTo: uid)
-        .orderBy('updatedAt', descending: true)
-        .limit(1)
+    return _myResultDoc(uid)
         .snapshots()
-        .map((snap) {
-          if (snap.docs.isEmpty) return null;
-          return KinkQuizResult.fromFirestore(snap.docs.first);
-        });
+        .map((snap) => snap.exists ? KinkQuizResult.fromFirestore(snap) : null);
   }
 
   Stream<KinkQuizResult?> watchPartnerResult(String partnerUserId) {
-    return _results
-        .where('userId', isEqualTo: partnerUserId)
-        .where('visibleToPartners', isEqualTo: true)
-        .orderBy('updatedAt', descending: true)
-        .limit(1)
+    return _myResultDoc(partnerUserId)
         .snapshots()
         .map((snap) {
-          if (snap.docs.isEmpty) return null;
-          return KinkQuizResult.fromFirestore(snap.docs.first);
+          if (!snap.exists) return null;
+          final result = KinkQuizResult.fromFirestore(snap);
+          if (!result.visibleToPartners) return null;
+          return result;
         });
   }
 
-  Future<void> saveResult({
+  Future<String?> saveResult({
     String? existingId,
     required Map<String, KinkQuizAnswer> answers,
     required int score,
@@ -50,7 +44,8 @@ class KinkQuizRepository {
     required bool visibleToPartners,
   }) async {
     final uid = _uid;
-    if (uid == null) return;
+    if (uid == null) return null;
+    final docId = existingId ?? uid;
     final now = DateTime.now();
     final data = {
       'userId': uid,
@@ -62,11 +57,9 @@ class KinkQuizRepository {
       'visibleToPartners': visibleToPartners,
       'participants': [uid],
       'updatedAt': Timestamp.fromDate(now),
+      'createdAt': Timestamp.fromDate(now),
     };
-    if (existingId == null) {
-      await _results.add({...data, 'createdAt': Timestamp.fromDate(now)});
-    } else {
-      await _results.doc(existingId).set(data, SetOptions(merge: true));
-    }
+    await _results.doc(docId).set(data, SetOptions(merge: true));
+    return docId;
   }
 }

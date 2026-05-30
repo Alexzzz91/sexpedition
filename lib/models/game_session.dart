@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum GameSessionType { scratchPose, dice }
+enum GameSessionType { scratchPose, dice, truthOrDare }
 
 enum GameSessionStatus { started, accepted, skipped }
 
@@ -32,6 +32,42 @@ class GameRoll {
   }
 }
 
+class TruthOrDareRound {
+  const TruthOrDareRound({
+    required this.kind,
+    required this.level,
+    required this.promptId,
+    required this.promptText,
+    required this.shownAt,
+  });
+
+  final String kind;
+  final String level;
+  final String promptId;
+  final String promptText;
+  final DateTime shownAt;
+
+  Map<String, dynamic> toMap() {
+    return {
+      'kind': kind,
+      'level': level,
+      'promptId': promptId,
+      'promptText': promptText,
+      'shownAt': Timestamp.fromDate(shownAt),
+    };
+  }
+
+  static TruthOrDareRound fromMap(Map<String, dynamic> map) {
+    return TruthOrDareRound(
+      kind: map['kind'] as String? ?? '',
+      level: map['level'] as String? ?? 'soft',
+      promptId: map['promptId'] as String? ?? '',
+      promptText: map['promptText'] as String? ?? '',
+      shownAt: (map['shownAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
+}
+
 class GameSession {
   const GameSession({
     required this.id,
@@ -50,6 +86,11 @@ class GameSession {
     this.place,
     this.dicePose,
     this.rollHistory = const [],
+    this.truthOrDareKind,
+    this.truthOrDareLevel,
+    this.truthOrDarePromptId,
+    this.truthOrDarePromptText,
+    this.truthOrDareHistory = const [],
   });
 
   final String id;
@@ -68,6 +109,11 @@ class GameSession {
   final String? place;
   final String? dicePose;
   final List<GameRoll> rollHistory;
+  final String? truthOrDareKind;
+  final String? truthOrDareLevel;
+  final String? truthOrDarePromptId;
+  final String? truthOrDarePromptText;
+  final List<TruthOrDareRound> truthOrDareHistory;
 
   static String typeToStorage(GameSessionType type) {
     switch (type) {
@@ -75,6 +121,8 @@ class GameSession {
         return 'scratch_pose';
       case GameSessionType.dice:
         return 'dice';
+      case GameSessionType.truthOrDare:
+        return 'truth_or_dare';
     }
   }
 
@@ -82,6 +130,8 @@ class GameSession {
     switch (value) {
       case 'dice':
         return GameSessionType.dice;
+      case 'truth_or_dare':
+        return GameSessionType.truthOrDare;
       case 'scratch_pose':
       default:
         return GameSessionType.scratchPose;
@@ -129,6 +179,13 @@ class GameSession {
       'place': place,
       'dicePose': dicePose,
       'rollHistory': rollHistory.map((roll) => roll.toMap()).toList(),
+      'truthOrDareKind': truthOrDareKind,
+      'truthOrDareLevel': truthOrDareLevel,
+      'truthOrDarePromptId': truthOrDarePromptId,
+      'truthOrDarePromptText': truthOrDarePromptText,
+      'truthOrDareHistory': truthOrDareHistory
+          .map((round) => round.toMap())
+          .toList(),
     };
   }
 
@@ -138,6 +195,7 @@ class GameSession {
     final data = doc.data() ?? {};
     final rawParticipants = data['participants'] as List<dynamic>?;
     final rawHistory = data['rollHistory'] as List<dynamic>?;
+    final rawTruthOrDareHistory = data['truthOrDareHistory'] as List<dynamic>?;
     return GameSession(
       id: doc.id,
       userId: data['userId'] as String? ?? '',
@@ -159,6 +217,15 @@ class GameSession {
       rollHistory: rawHistory
               ?.whereType<Map<String, dynamic>>()
               .map(GameRoll.fromMap)
+              .toList() ??
+          const [],
+      truthOrDareKind: data['truthOrDareKind'] as String?,
+      truthOrDareLevel: data['truthOrDareLevel'] as String?,
+      truthOrDarePromptId: data['truthOrDarePromptId'] as String?,
+      truthOrDarePromptText: data['truthOrDarePromptText'] as String?,
+      truthOrDareHistory: rawTruthOrDareHistory
+              ?.whereType<Map<String, dynamic>>()
+              .map(TruthOrDareRound.fromMap)
               .toList() ??
           const [],
     );

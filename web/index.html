@@ -19,6 +19,7 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="A new Flutter project.">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -31,6 +32,48 @@
 
   <title>sexpedition_application_1</title>
   <link rel="manifest" href="manifest.json">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script>
+    (function () {
+      const bridge = {
+        isAvailable: false,
+        isExpanded: false,
+        colorScheme: null,
+        themeParams: {},
+        initData: '',
+        initDataUnsafe: null,
+      };
+
+      try {
+        if (window.Telegram && window.Telegram.WebApp) {
+          const app = window.Telegram.WebApp;
+          app.ready();
+          if (!app.isExpanded) {
+            app.expand();
+          }
+          bridge.isAvailable = true;
+          bridge.isExpanded = !!app.isExpanded;
+          bridge.colorScheme = app.colorScheme || null;
+          bridge.themeParams = app.themeParams || {};
+          bridge.initData = app.initData || '';
+          bridge.initDataUnsafe = app.initDataUnsafe || null;
+        }
+      } catch (_) {}
+
+      window.sexpTelegramWebAppBridge = {
+        getState: function () {
+          return JSON.stringify(bridge);
+        },
+        close: function () {
+          try {
+            if (window.Telegram && window.Telegram.WebApp) {
+              window.Telegram.WebApp.close();
+            }
+          } catch (_) {}
+        },
+      };
+    })();
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

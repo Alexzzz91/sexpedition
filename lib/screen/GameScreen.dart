@@ -7,11 +7,12 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:sexpedition_application_1/data/game_options.dart';
 import 'package:sexpedition_application_1/data/kamasutra_poses.dart';
+import 'package:sexpedition_application_1/data/truth_or_dare_prompts.dart';
 import 'package:sexpedition_application_1/models/game_session.dart';
 import 'package:sexpedition_application_1/services/game_sound_service.dart';
 import 'package:sexpedition_application_1/services/game_stats_repository.dart';
 
-enum _GameMode { scratchPose, dice }
+enum _GameMode { scratchPose, dice, truthOrDare }
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -45,8 +46,14 @@ class _GameScreenState extends State<GameScreen> {
                 visibleToPartners: _visibleToPartners,
                 onBack: () => setState(() => _mode = null),
               )
-            : _DiceGame(
+            : mode == _GameMode.dice
+            ? _DiceGame(
                 key: const ValueKey('dice'),
+                visibleToPartners: _visibleToPartners,
+                onBack: () => setState(() => _mode = null),
+              )
+            : _TruthOrDareGame(
+                key: const ValueKey('truth_or_dare'),
                 visibleToPartners: _visibleToPartners,
                 onBack: () => setState(() => _mode = null),
               ),
@@ -77,7 +84,7 @@ class _GameHub extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Сыграйте в случайную позу или бросьте кубики для места и сценария.',
+          'Сыграйте в случайную позу, бросьте кубики или выберите «Правду или действие».',
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 16),
@@ -104,6 +111,14 @@ class _GameHub extends StatelessWidget {
           description:
               'Бросьте два кубика: один подскажет место, второй — позу или практику.',
           onTap: () => onSelect(_GameMode.dice),
+        ),
+        const SizedBox(height: 12),
+        _GameModeCard(
+          icon: Icons.question_answer,
+          title: 'Правда или действие',
+          description:
+              'Тяните карточки с вопросами и заданиями, чтобы разогреть разговор и настроение.',
+          onTap: () => onSelect(_GameMode.truthOrDare),
         ),
       ],
     );
@@ -829,6 +844,281 @@ class _BackToGamesButton extends StatelessWidget {
         icon: const Icon(Icons.arrow_back),
         label: const Text('К выбору игры'),
       ),
+    );
+  }
+}
+
+class _TruthOrDareGame extends StatefulWidget {
+  const _TruthOrDareGame({
+    super.key,
+    required this.visibleToPartners,
+    required this.onBack,
+  });
+
+  final bool visibleToPartners;
+  final VoidCallback onBack;
+
+  @override
+  State<_TruthOrDareGame> createState() => _TruthOrDareGameState();
+}
+
+class _TruthOrDareGameState extends State<_TruthOrDareGame> {
+  final GameStatsRepository _repo = GameStatsRepository();
+  final Random _random = Random();
+  late final DateTime _startedAt;
+
+  String? _sessionId;
+  TruthOrDarePrompt? _currentPrompt;
+  String? _currentKind;
+  TruthOrDareLevel _selectedLevel = TruthOrDareLevel.soft;
+  bool _drawing = false;
+  bool _saving = false;
+
+  String _levelHint(TruthOrDareLevel level) {
+    switch (level) {
+      case TruthOrDareLevel.soft:
+        return 'Soft: легкий флирт, комфортные вопросы и задания.';
+      case TruthOrDareLevel.hot:
+        return 'Hot: более откровенный тон и смелые формулировки.';
+      case TruthOrDareLevel.extreme:
+        return 'Extreme: максимально дерзкий уровень, выбирайте по взаимному согласию.';
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _startedAt = DateTime.now();
+    _startSession();
+  }
+
+  Future<void> _startSession() async {
+    _sessionId = await _repo.startTruthOrDareSession(
+      visibleToPartners: widget.visibleToPartners,
+    );
+  }
+
+  Future<void> _drawPrompt({String? forcedKind}) async {
+    if (_drawing || _saving) return;
+    final kind = forcedKind ?? (_random.nextBool() ? 'truth' : 'dare');
+    final baseSource = kind == 'truth' ? truthPrompts : darePrompts;
+    final source = baseSource
+        .where((prompt) => prompt.level == _selectedLevel)
+        .toList();
+    final effectiveSource = source.isEmpty ? baseSource : source;
+    if (effectiveSource.isEmpty) return;
+    final prompt = effectiveSource[_random.nextInt(effectiveSource.length)];
+
+    setState(() {
+      _drawing = true;
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 220));
+    if (!mounted) return;
+
+    setState(() {
+      _currentKind = kind;
+      _currentPrompt = prompt;
+      _drawing = false;
+    });
+
+    final sessionId = _sessionId;
+    if (sessionId != null) {
+      await _repo.recordTruthOrDareRound(
+        sessionId: sessionId,
+        kind: kind,
+        level: _selectedLevel.name,
+        promptId: prompt.id,
+        promptText: prompt.text,
+      );
+    }
+  }
+
+  Future<void> _complete(GameSessionStatus status) async {
+    final sessionId = _sessionId;
+    setState(() => _saving = true);
+    if (sessionId != null) {
+      await _repo.completeTruthOrDareSession(
+        sessionId: sessionId,
+        status: status,
+        startedAt: _startedAt,
+      );
+    }
+    if (!mounted) return;
+    setState(() => _saving = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          status == GameSessionStatus.accepted
+              ? 'Игра сохранена как удачная'
+              : 'Игра завершена и сохранена',
+        ),
+      ),
+    );
+    widget.onBack();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final prompt = _currentPrompt;
+    final kind = _currentKind;
+    final truthCount = truthPrompts
+        .where((prompt) => prompt.level == _selectedLevel)
+        .length;
+    final dareCount = darePrompts
+        .where((prompt) => prompt.level == _selectedLevel)
+        .length;
+    final kindLabel = kind == 'truth' ? 'Правда' : 'Действие';
+    final kindColor = kind == 'truth'
+        ? Theme.of(context).colorScheme.primary
+        : Theme.of(context).colorScheme.secondary;
+
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        _BackToGamesButton(onPressed: widget.onBack),
+        const SizedBox(height: 12),
+        Text(
+          'Правда или действие',
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Выберите тип карточки или доверьтесь случаю. Можно тянуть несколько карточек подряд.',
+        ),
+        const SizedBox(height: 12),
+        SegmentedButton<TruthOrDareLevel>(
+          segments: const [
+            ButtonSegment(
+              value: TruthOrDareLevel.soft,
+              label: Text('Soft'),
+            ),
+            ButtonSegment(
+              value: TruthOrDareLevel.hot,
+              label: Text('Hot'),
+            ),
+            ButtonSegment(
+              value: TruthOrDareLevel.extreme,
+              label: Text('Extreme'),
+            ),
+          ],
+          selected: {_selectedLevel},
+          onSelectionChanged: (selection) {
+            final level = selection.first;
+            setState(() {
+              _selectedLevel = level;
+            });
+          },
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Карточек: правда $truthCount, действие $dareCount',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _levelHint(_selectedLevel),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _drawing || _saving
+                    ? null
+                    : () => _drawPrompt(forcedKind: 'truth'),
+                child: const Text('Правда'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _drawing || _saving
+                    ? null
+                    : () => _drawPrompt(forcedKind: 'dare'),
+                child: const Text('Действие'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: FilledButton(
+                onPressed: _drawing || _saving ? null : _drawPrompt,
+                child: Text(_drawing ? '...' : 'Случайно'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              child: prompt == null
+                  ? const SizedBox(
+                      key: ValueKey('empty_prompt'),
+                      height: 120,
+                      child: Center(
+                        child: Text(
+                          'Нажмите кнопку выше, чтобы получить карточку',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    )
+                  : Column(
+                      key: ValueKey('${prompt.id}_$kind'),
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: kindColor.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            kindLabel,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: kindColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          prompt.text,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+        ),
+        if (prompt != null) ...[
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _saving ? null : () => _complete(GameSessionStatus.skipped),
+                  child: const Text('Завершить'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  onPressed: _saving ? null : () => _complete(GameSessionStatus.accepted),
+                  child: const Text('Отлично, берём'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 }

@@ -9,7 +9,9 @@
 
 import {setGlobalOptions} from "firebase-functions";
 import {onDocumentCreated} from "firebase-functions/v2/firestore";
+import {HttpsError, onCall, onRequest} from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
+import {createHmac, timingSafeEqual} from "crypto";
 
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript
@@ -29,6 +31,11 @@ setGlobalOptions({ maxInstances: 10 });
 admin.initializeApp();
 
 const db = admin.firestore();
+
+function envValue(name: string): string {
+  const value = process.env[name]?.trim();
+  return value ?? "";
+}
 
 type WishDoc = {
   userId?: string;
@@ -155,3 +162,198 @@ export const onWishCreated = onDocumentCreated("wishes/{wishId}", async (event) 
     }
   }
 });
+
+type TelegramWebAppUser = {
+  id: number;
+  username?: string;
+  first_name?: string;
+  last_name?: string;
+};
+
+function verifyTelegramInitData(initData: string, botToken: string): URLSearchParams {
+  const params = new URLSearchParams(initData);
+  const receivedHash = params.get("hash");
+  if (!receivedHash) {
+    throw new HttpsError("invalid-argument", "Telegram hash is missing.");
+  }
+
+  const entries: Array<[string, string]> = [];
+  params.forEach((value, key) => {
+    if (key !== "hash") {
+      entries.push([key, value]);
+    }
+  });
+  entries.sort((a, b) => a[0].localeCompare(b[0]));
+  const dataCheckString = entries.map(([k, v]) => `${k}=${v}`).join("\n");
+
+  const secretKey = createHmac("sha256", "WebAppData").update(botToken).digest();
+  const calculatedHash = createHmac("sha256", secretKey)
+    .update(dataCheckString)
+    .digest("hex");
+
+  const a = Buffer.from(receivedHash, "hex");
+  const b = Buffer.from(calculatedHash, "hex");
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    throw new HttpsError("permission-denied", "Telegram data signature mismatch.");
+  }
+
+  const authDateRaw = params.get("auth_date");
+  const authDate = authDateRaw ? Number(authDateRaw) : NaN;
+  if (!Number.isFinite(authDate)) {
+    throw new HttpsError("invalid-argument", "Telegram auth_date is invalid.");
+  }
+  const authAgeSec = Math.floor(Date.now() / 1000) - authDate;
+  if (authAgeSec > 24 * 60 * 60) {
+    throw new HttpsError("permission-denied", "Telegram initData is expired.");
+  }
+
+  return params;
+}
+
+function parseTelegramUser(params: URLSearchParams): TelegramWebAppUser {
+  const rawUser = params.get("user");
+  if (!rawUser) {
+    throw new HttpsError("invalid-argument", "Telegram user payload missing.");
+  }
+  let user: TelegramWebAppUser;
+  try {
+    user = JSON.parse(rawUser) as TelegramWebAppUser;
+  } catch {
+    throw new HttpsError("invalid-argument", "Telegram user payload malformed.");
+  }
+  if (!Number.isFinite(user.id)) {
+    throw new HttpsError("invalid-argument", "Telegram user id is invalid.");
+  }
+  return user;
+}
+
+function telegramDisplayName(user: TelegramWebAppUser): string {
+  const first = user.first_name?.trim() ?? "";
+  const last = user.last_name?.trim() ?? "";
+  const full = `${first} ${last}`.trim();
+  if (full.length > 0) return full;
+  if ((user.username ?? "").trim().length > 0) return `@${user.username!.trim()}`;
+  return `Telegram ${user.id}`;
+}
+
+export const telegramWebAppSignIn = onCall(
+  async (request) => {
+    const initData = request.data?.initData;
+    if (typeof initData !== "string" || initData.trim().length === 0) {
+      throw new HttpsError("invalid-argument", "initData is required.");
+    }
+
+    const botToken = envValue("TELEGRAM_BOT_TOKEN");
+    if (!botToken || botToken.trim().length === 0) {
+      throw new HttpsError("failed-precondition", "Telegram bot token is not configured.");
+    }
+
+    const params = verifyTelegramInitData(initData, botToken);
+    const tgUser = parseTelegramUser(params);
+    const uid = `tg_${tgUser.id}`;
+    const displayName = telegramDisplayName(tgUser);
+    const pseudoEmail = `telegram_${tgUser.id}@telegram.local`;
+
+    try {
+      await admin.auth().getUser(uid);
+      await admin.auth().updateUser(uid, {
+        displayName,
+      });
+    } catch (error: unknown) {
+      const code = (error as {code?: string}).code ?? "";
+      if (code === "auth/user-not-found") {
+        await admin.auth().createUser({
+          uid,
+          displayName,
+        });
+      } else {
+        throw error;
+      }
+    }
+
+    await db.collection("users").doc(uid).set({
+      displayName,
+      email: pseudoEmail,
+      telegramUserId: String(tgUser.id),
+      telegramUsername: tgUser.username ?? null,
+      authProvider: "telegram_webapp",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, {merge: true});
+
+    const customToken = await admin.auth().createCustomToken(uid, {
+      provider: "telegram_webapp",
+      telegramUserId: String(tgUser.id),
+    });
+
+    return {
+      customToken,
+      uid,
+      displayName,
+      telegramUsername: tgUser.username ?? null,
+    };
+  },
+);
+
+type TelegramUpdate = {
+  message?: {
+    chat?: {id?: number};
+    text?: string;
+  };
+};
+
+async function sendTelegramBotMessage(
+  botToken: string,
+  chatId: number,
+  text: string,
+  webAppUrl: string,
+): Promise<void> {
+  const endpoint = `https://api.telegram.org/bot${botToken}/sendMessage`;
+  await fetch(endpoint, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      reply_markup: {
+        inline_keyboard: [[{
+          text: "Открыть Sexpedition",
+          web_app: {url: webAppUrl},
+        }]],
+      },
+    }),
+  });
+}
+
+export const telegramBotWebhook = onRequest(
+  async (req, res) => {
+    if (req.method !== "POST") {
+      res.status(405).send("Method Not Allowed");
+      return;
+    }
+
+    const update = (req.body ?? {}) as TelegramUpdate;
+    const message = update.message;
+    const chatId = message?.chat?.id;
+    const text = message?.text?.trim() ?? "";
+    if (!chatId) {
+      res.status(200).send("ok");
+      return;
+    }
+
+    if (text.startsWith("/start")) {
+      const botToken = envValue("TELEGRAM_BOT_TOKEN");
+      const webAppUrl = envValue("TELEGRAM_WEBAPP_URL");
+      if (botToken && webAppUrl) {
+        await sendTelegramBotMessage(
+          botToken,
+          chatId,
+          "Открой приложение по кнопке ниже:",
+          webAppUrl,
+        );
+      }
+    }
+
+    res.status(200).send("ok");
+  },
+);

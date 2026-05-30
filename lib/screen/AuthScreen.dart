@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:sexpedition_application_1/services/partners_repository.dart';
+import 'package:sexpedition_application_1/services/auth/telegram_auth_service.dart';
+import 'package:sexpedition_application_1/services/telegram_webapp_service.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -17,6 +20,13 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _isLogin = true;
   bool _isLoading = false;
   String? _errorMessage;
+  late final bool _isTelegramWebApp;
+
+  @override
+  void initState() {
+    super.initState();
+    _isTelegramWebApp = TelegramWebAppService.instance.isInTelegramWebApp;
+  }
 
   @override
   void dispose() {
@@ -77,6 +87,45 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  Future<void> _signInWithTelegram() async {
+    setState(() {
+      _errorMessage = null;
+      _isLoading = true;
+    });
+    try {
+      await TelegramAuthService.instance.signInWithTelegramWebApp();
+      if (mounted) setState(() => _isLoading = false);
+    } on TelegramAuthException catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = e.message;
+        });
+      }
+    } on FirebaseFunctionsException catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = e.message ?? 'Ошибка авторизации через Telegram';
+        });
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = e.message ?? 'Ошибка авторизации через Telegram';
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Не удалось выполнить вход через Telegram';
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -101,7 +150,23 @@ class _AuthScreenState extends State<AuthScreen> {
                     style: Theme.of(context).textTheme.titleMedium,
                     textAlign: TextAlign.center,
                   ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _isTelegramWebApp
+                        ? 'Открыто внутри Telegram: доступен быстрый вход через Telegram.'
+                        : 'Открыто в браузере: доступны стандартные способы входа.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
                   const SizedBox(height: 32),
+                  if (_isTelegramWebApp) ...[
+                    FilledButton.icon(
+                      onPressed: _isLoading ? null : _signInWithTelegram,
+                      icon: const Icon(Icons.telegram),
+                      label: const Text('Войти через Telegram'),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
